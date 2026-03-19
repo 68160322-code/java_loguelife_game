@@ -25,16 +25,30 @@ public class Enemy {
     // คิดท่าโจมตีล่วงหน้า
     public void decideIntent() {
         intentValue = 5 + (level * 2);
-        intent = "Attack " + intentValue;
+        // แสดงดาเมจที่แม่นยำ รวม strength และ weak ที่มีอยู่แล้ว
+        int displayDmg = intentValue + strength;
+        if (weak > 0) displayDmg = (int)(displayDmg * 0.75);
+        intent = "[ATK] Attack: " + Math.max(displayDmg, 0) + " dmg";
     }
 
-    // คำนวณดาเมจตอนโจมตีจริง
+    // คำนวณดาเมจตอนโจมตีจริง (ใช้ intentValue ที่ประกาศไว้แล้ว เพื่อให้ตรงกับที่แสดง)
     public int attack() {
+        if (intentValue <= 0) return 0; // เทิร์นที่ไม่ได้โจมตี
         int dmg = intentValue + strength;
         if (weak > 0) {
-            dmg = (int)(dmg * 0.75); // ติดสถานะอ่อนแอ ดาเมจลดลง 25%
+            dmg = (int)(dmg * 0.75);
         }
         return Math.max(dmg, 0);
+    }
+
+    // อัปเดต intent string ให้ตรงกับดาเมจจริงที่จะโดน (รวม strength + weak แล้ว)
+    public void refreshIntentDisplay() {
+        if (intentValue <= 0) return; // ไม่ใช่เทิร์นโจมตี ไม่ต้องอัปเดต
+        int actualDmg = intentValue + strength;
+        if (weak > 0) actualDmg = (int)(actualDmg * 0.75);
+        actualDmg = Math.max(actualDmg, 0);
+        // แทนที่ตัวเลขเก่าใน intent string ด้วยตัวเลขจริง
+        intent = intent.replaceAll("\\d+$", String.valueOf(actualDmg));
     }
 
     // จัดการดาเมจที่ได้รับ
@@ -79,4 +93,5 @@ public class Enemy {
     public int getWeak() { return weak; }
     public int getStrength() { return strength; }
     public int getMaxHp(){ return maxHp; }
+    public int getLevel() { return level; }
 }

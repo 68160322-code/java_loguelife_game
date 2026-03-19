@@ -65,4 +65,7 @@ public class Deck {
         for (Card c : pile) sb.append("- ").append(c.getName()).append("\n");
         return sb.toString();
     }
+    public ArrayList<Card> getMasterDeck() {
+        return masterDeck;
+    }
 }

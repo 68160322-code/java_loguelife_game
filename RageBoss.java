@@ -8,20 +8,37 @@ public class RageBoss extends Enemy {
     }
 
     @Override
+    public void decideIntent() {
+        if (isEnraged) {
+            // โหมดบ้าคลั่ง: แสดงดาเมจจริงรวม strength
+            int rageDmg = intentValue + strength;
+            if (weak > 0) rageDmg = (int)(rageDmg * 0.75);
+            intent = "[RAGE] Attack: " + Math.max(rageDmg + 5, 0) + " dmg (boosted)";
+        } else {
+            // โหมดปกติ
+            intentValue = 8 + (level * 2);
+            int displayDmg = intentValue + strength;
+            if (weak > 0) displayDmg = (int)(displayDmg * 0.75);
+            intent = "[ATK] Attack: " + Math.max(displayDmg, 0) + " dmg";
+        }
+    }
+
+    @Override
     public void takeDamage(int dmg) {
         super.takeDamage(dmg);
         // Mechanic: เมื่อเลือดต่ำกว่า 50% จะเข้าสู่โหมดบ้าคลั่งทันที
         if (hp < maxHp / 2 && !isEnraged) {
             isEnraged = true;
-            this.addStrength(5); // เพิ่มดาเมจมหาศาล
-            this.intent = "💢 ENRAGED!";
-            // สามารถเพิ่ม Effect เสียงหรือ Log ใน GameFrame ได้
+            this.addStrength(5);
+            // อัปเดต intent ให้สะท้อนดาเมจจริงหลัง enrage ทันที
+            int rageDmg = intentValue + strength;
+            if (weak > 0) rageDmg = (int)(rageDmg * 0.75);
+            this.intent = "[RAGE] Attack: " + Math.max(rageDmg + 5, 0) + " dmg (boosted)";
         }
     }
 
     @Override
     public int attack() {
-        // ถ้าบ้าคลั่ง จะโจมตี 2 ครั้ง (Double Attack)
         if (isEnraged) {
             return super.attack() + 5;
         }
