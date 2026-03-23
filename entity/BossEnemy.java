@@ -1,3 +1,7 @@
+package entity;
+
+import entity.Enemy;
+
 public class BossEnemy extends Enemy {
     private int turnCount = 0;
     private boolean isDefending = false;

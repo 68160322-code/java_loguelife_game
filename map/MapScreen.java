@@ -1,3 +1,5 @@
+package map;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
@@ -14,8 +16,8 @@ public class MapScreen extends JPanel {
         void onNodeSelected(MapNode node);
     }
 
-    private static final int COLS = 7;
-    private static final int ROWS = 4;
+    public static final int COLS = 7;
+    public static final int ROWS = 4;
 
     private MapNode[][] grid = new MapNode[COLS][ROWS];
 
@@ -33,14 +35,12 @@ public class MapScreen extends JPanel {
     public MapScreen(MapListener listener) {
         this.listener = listener;
         setBackground(new Color(10, 8, 20));
-        setPreferredSize(new Dimension(860, 480));
 
         for (int c = 0; c < COLS; c++)
             for (int r = 0; r < ROWS; r++)
                 edges[c][r] = new java.util.ArrayList<>();
 
         generateMap();
-        calcPositions();
 
         addMouseListener(new MouseAdapter() {
             @Override public void mouseClicked(MouseEvent e) {
@@ -59,6 +59,12 @@ public class MapScreen extends JPanel {
         this.readOnly = ro;
         hovered = null;
         repaint();
+    }
+
+    /** ดึง node ที่ตำแหน่ง col, row — ใช้โดย SaveManager */
+    public map.MapNode getNode(int col, int row) {
+        if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return null;
+        return grid[col][row];
     }
 
     public void setCurrentPosition(int col, int row) {
@@ -128,12 +134,16 @@ public class MapScreen extends JPanel {
         for (int r = 0; r < ROWS; r++) grid[0][r].setAvailable(true);
     }
 
+    /** คำนวณตำแหน่ง node จาก actual panel size — เรียกทุกครั้งก่อนวาด */
     private void calcPositions() {
-        int marginX = 80, marginY = 70;
+        int w = Math.max(getWidth(), 400);
+        int h = Math.max(getHeight(), 300);
+        int marginX = (int)(w * 0.07);
+        int marginY = (int)(h * 0.12);
         colX = new int[COLS];
         rowY = new int[ROWS];
-        for (int c = 0; c < COLS; c++) colX[c] = marginX + c * ((860 - marginX * 2) / (COLS - 1));
-        for (int r = 0; r < ROWS; r++) rowY[r] = marginY + r * ((480 - marginY * 2) / (ROWS - 1));
+        for (int c = 0; c < COLS; c++) colX[c] = marginX + c * ((w - marginX * 2) / (COLS - 1));
+        for (int r = 0; r < ROWS; r++) rowY[r] = marginY + r * ((h - marginY * 2) / (ROWS - 1));
     }
 
     // ── Interaction ───────────────────────────────────────────────────────────
@@ -188,6 +198,7 @@ public class MapScreen extends JPanel {
     // ── Painting ──────────────────────────────────────────────────────────────
     @Override protected void paintComponent(Graphics g) {
         super.paintComponent(g);
+        calcPositions(); // คำนวณตำแหน่งใหม่ทุกครั้งตามขนาดจริง
         Graphics2D g2 = (Graphics2D) g;
         g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         drawStars(g2);
@@ -211,33 +222,44 @@ public class MapScreen extends JPanel {
         for (int c = 0; c < COLS - 1; c++) {
             for (int r = 0; r < ROWS; r++) {
                 for (int nr : edges[c][r]) {
+                    if (grid[c][r] == null || grid[c+1][nr] == null) continue;
                     boolean srcVisited = grid[c][r].isVisited();
                     boolean srcLocked  = grid[c][r].isLocked();
-                    boolean dstAvail   = grid[c + 1][nr].isAvailable();
+                    boolean srcAvail   = grid[c][r].isAvailable();
+                    boolean dstAvail   = grid[c+1][nr].isAvailable();
 
-                    Color lineColor;
-                    float lineWidth;
+                    int x1 = colX[c], y1 = rowY[r];
+                    int x2 = colX[c+1], y2 = rowY[nr];
+
                     if (srcLocked) {
-                        // เส้นจาก node ที่ไม่ได้เลือก — จางมาก
-                        lineColor = new Color(35, 32, 50, 50);
-                        lineWidth = 0.8f;
-                    } else if (srcVisited) {
-                        // เส้นที่เดินผ่านแล้ว — สว่าง
-                        lineColor = new Color(160, 120, 240, 220);
-                        lineWidth = 2.5f;
-                    } else if (grid[c][r].isAvailable() && dstAvail) {
-                        // เส้นที่เดินได้ตอนนี้
-                        lineColor = new Color(110, 85, 170, 170);
-                        lineWidth = 1.8f;
-                    } else {
-                        // ยังไม่ถึง
-                        lineColor = new Color(50, 45, 75, 80);
-                        lineWidth = 1.0f;
-                    }
+                        // node ที่ไม่ได้เลือก — จางมาก
+                        g2.setColor(new Color(40, 36, 58, 40));
+                        g2.setStroke(new BasicStroke(0.8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawLine(x1, y1, x2, y2);
 
-                    g2.setColor(lineColor);
-                    g2.setStroke(new BasicStroke(lineWidth, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                    g2.drawLine(colX[c], rowY[r], colX[c + 1], rowY[nr]);
+                    } else if (srcVisited) {
+                        // เส้นที่เดินผ่านแล้ว — glow สีม่วง 2 ชั้น
+                        // glow ด้านนอก
+                        g2.setColor(new Color(160, 100, 255, 55));
+                        g2.setStroke(new BasicStroke(5f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawLine(x1, y1, x2, y2);
+                        // เส้นหลัก
+                        g2.setColor(new Color(180, 140, 255, 240));
+                        g2.setStroke(new BasicStroke(2.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawLine(x1, y1, x2, y2);
+
+                    } else if (srcAvail || dstAvail) {
+                        // เส้นที่เดินได้ — สว่างพอดู
+                        g2.setColor(new Color(100, 80, 150, 160));
+                        g2.setStroke(new BasicStroke(1.6f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawLine(x1, y1, x2, y2);
+
+                    } else {
+                        // ยังไม่ถึง — มองเห็นได้บ้าง
+                        g2.setColor(new Color(60, 55, 85, 110));
+                        g2.setStroke(new BasicStroke(1.2f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+                        g2.drawLine(x1, y1, x2, y2);
+                    }
                 }
             }
         }
@@ -248,7 +270,8 @@ public class MapScreen extends JPanel {
         for (int c = 0; c < COLS; c++) for (int r = 0; r < ROWS; r++) {
             MapNode n = grid[c][r];
             if (n == null) continue;
-            int nx = colX[c], ny = rowY[r], rad = 21;
+            int nx = colX[c], ny = rowY[r];
+            int rad = Math.max(16, Math.min(26, getWidth() / 55));
             boolean isHovered = (n == hovered);
 
             if (n.isVisited()) {
@@ -296,7 +319,9 @@ public class MapScreen extends JPanel {
                 Color iconColor = n.isVisited()   ? new Color(80, 70, 110)
                         : n.isAvailable() ? Color.WHITE
                         : new Color(50, 45, 65);
-                g2.setFont(new Font("SansSerif", Font.BOLD, n.getType() == MapNode.NodeType.BOSS ? 15 : 13));
+                // Icon ใช้ symbol font เพื่อให้ ⚔ ♛ ♨ ☠ แสดงถูกต้อง
+                int iconSize = n.getType() == MapNode.NodeType.BOSS ? 15 : 13;
+                g2.setFont(new Font("SansSerif", Font.BOLD, iconSize));
                 g2.setColor(iconColor);
                 FontMetrics fm = g2.getFontMetrics();
                 g2.drawString(n.getIcon(), nx - fm.stringWidth(n.getIcon()) / 2, ny + 5);
@@ -315,16 +340,18 @@ public class MapScreen extends JPanel {
     private void drawPlayerMarker(Graphics2D g2) {
         if (currentCol < 0 || currentRow < 0) return;
         int nx = colX[currentCol], ny = rowY[currentRow];
+        int rad  = Math.max(16, Math.min(26, getWidth() / 55));
+        int glow = rad + 12;
 
         g2.setColor(new Color(100, 255, 150, 55));
-        g2.fillOval(nx - 33, ny - 33, 66, 66);
+        g2.fillOval(nx - glow, ny - glow, glow * 2, glow * 2);
         g2.setColor(new Color(80, 220, 120, 130));
         g2.setStroke(new BasicStroke(2.5f));
-        g2.drawOval(nx - 33, ny - 33, 66, 66);
+        g2.drawOval(nx - glow, ny - glow, glow * 2, glow * 2);
         g2.setStroke(new BasicStroke(1));
 
-        int tip  = ny - 28;
-        int base = tip - 13;
+        int tip  = ny - rad - 8;
+        int base = tip - 12;
         int[] xp = {nx - 7, nx + 7, nx};
         int[] yp = {base, base, tip};
         g2.setColor(new Color(100, 255, 150));
@@ -340,9 +367,9 @@ public class MapScreen extends JPanel {
     private void drawReadOnlyOverlay(Graphics2D g2) {
         g2.setColor(new Color(0, 0, 0, 160));
         g2.fillRect(0, 0, getWidth(), 56);
-        g2.setFont(new Font("Serif", Font.BOLD, 15));
+        g2.setFont(new Font("SansSerif", Font.BOLD, 15));
         g2.setColor(new Color(255, 180, 60));
-        String msg = "⚔  IN BATTLE — Map is view only  ⚔";
+        String msg = "⚔  In Battle  ⚔";
         FontMetrics fm = g2.getFontMetrics();
         g2.drawString(msg, (getWidth() - fm.stringWidth(msg)) / 2, 32);
         g2.setColor(new Color(255, 140, 30, 120));
@@ -353,11 +380,16 @@ public class MapScreen extends JPanel {
     }
 
     private void drawHeader(Graphics2D g2) {
-        g2.setFont(new Font("Serif", Font.BOLD, 18));
+        int w = getWidth();
+        g2.setFont(new Font("SansSerif", Font.BOLD, Math.max(14, w / 55)));
         g2.setColor(new Color(200, 170, 255));
-        g2.drawString("✦  Choose Your Path  ✦", 290, 26);
-        g2.setFont(new Font("SansSerif", Font.PLAIN, 11));
+        String title = "Choose Thy Path";
+        FontMetrics fm = g2.getFontMetrics();
+        g2.drawString(title, (w - fm.stringWidth(title)) / 2, 28);
+        g2.setFont(new Font("SansSerif", Font.PLAIN, Math.max(10, w / 90)));
         g2.setColor(new Color(130, 115, 170));
-        g2.drawString("Click a glowing node to proceed", 320, 42);
+        String sub = "Step forward — fate awaits";
+        FontMetrics fm2 = g2.getFontMetrics();
+        g2.drawString(sub, (w - fm2.stringWidth(sub)) / 2, 46);
     }
 }

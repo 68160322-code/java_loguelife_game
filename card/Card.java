@@ -1,6 +1,37 @@
+package card;
+
+import entity.Player;
+import entity.Enemy;
+
 public class Card {
+
+    // ── Rarity ────────────────────────────────────────────────────────────────
+    public enum Rarity {
+        COMMON, RARE, EPIC, LEGENDARY;
+
+        public java.awt.Color color() {
+            switch (this) {
+                case COMMON:    return new java.awt.Color(160, 160, 170);
+                case RARE:      return new java.awt.Color(60,  130, 220);
+                case EPIC:      return new java.awt.Color(160, 50,  220);
+                case LEGENDARY: return new java.awt.Color(220, 160, 20);
+                default:        return java.awt.Color.WHITE;
+            }
+        }
+        public String label() {
+            switch (this) {
+                case COMMON:    return "Common";
+                case RARE:      return "Rare";
+                case EPIC:      return "Epic";
+                case LEGENDARY: return "Legendary";
+                default:        return "";
+            }
+        }
+    }
+
     private String name;
     private CardType type;
+    private Rarity rarity;
     private int damage, heal, block, cost, poison, strength, weak;
     private boolean exhaust;
     private boolean isUpgraded = false;
@@ -8,9 +39,15 @@ public class Card {
     private boolean energyBurst = false; // Whirlwind: ใช้ energy ทั้งหมด
 
     public Card(String name, CardType type) {
-        this.name = name;
-        this.type = type;
+        this(name, type, Rarity.COMMON);
     }
+    public Card(String name, CardType type, Rarity rarity) {
+        this.name   = name;
+        this.type   = type;
+        this.rarity = rarity;
+    }
+
+    public Rarity getRarity() { return rarity; }
 
     // Builder Methods
     public Card damage(int v) { this.damage = v; return this; }
@@ -26,11 +63,12 @@ public class Card {
 
     public void play(Player p, Enemy e) {
         if (energyBurst) {
-            // Whirlwind: ใช้ energy ที่เหลือทั้งหมด ดาเมจ = 5 x energy
-            int energyLeft = p.getEnergy();
-            int totalDmg = p.calculateDamage(5) * energyLeft;
+            // ใช้ damage field เป็น dmg per energy (default 5 ถ้าไม่ได้ set)
+            int dmgPerEnergy = damage > 0 ? damage : 5;
+            int energyLeft   = p.getEnergy();
+            int totalDmg     = p.calculateDamage(dmgPerEnergy) * energyLeft;
             e.takeDamage(totalDmg);
-            p.useEnergy(energyLeft); // หัก energy ทั้งหมด
+            p.useEnergy(energyLeft);
         } else if (multiHit && damage > 0) {
             // Twin Strike: ตี 2 ครั้งแยกกัน
             e.takeDamage(p.calculateDamage(damage));
@@ -66,13 +104,20 @@ public class Card {
         if (strength > 0) sb.append("[STR] Gain <b>").append(strength).append("</b> strength<br>");
         if (weak > 0)     sb.append("[WEK] Apply <b>").append(weak).append("</b> weak<br>");
         if (multiHit)    sb.append("[ATK] Hits <b>2x</b> " + damage + " each<br>");
-        if (energyBurst) sb.append("[ATK] 5 dmg x remaining Energy<br>");
+        if (energyBurst) {
+            int d = damage > 0 ? damage : 5;
+            sb.append("[ATK] ").append(d).append(" dmg x remaining Mana<br>");
+        }
         if (exhaust)     sb.append("<i>(Exhaust)</i>");
         return sb.toString();
     }
 
-    public String getName() { return name; }
-    public CardType getType() { return type; }
-    public int getCost() { return cost; }
+    public String getName()    { return name; }
+    public CardType getType()  { return type; }
+    public void setType(CardType t) { this.type = t; }  // ใช้โดย PlayerClass
+    public boolean hasPoison() { return poison > 0; }   // ใช้โดย PlayerClass
+    public int getCost()       { return cost; }
+    public int getHeal()       { return heal; }
+    public int getBlock()      { return block; }
     public boolean isExhaust() { return exhaust; }
 }

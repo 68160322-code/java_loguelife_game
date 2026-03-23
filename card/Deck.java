@@ -1,3 +1,5 @@
+package card;
+
 import java.util.*;
 
 public class Deck {
@@ -7,11 +9,7 @@ public class Deck {
     private ArrayList<Card> masterDeck = new ArrayList<>();
 
     public Deck() {
-        // สร้าง Deck เริ่มต้น (เหมือนเดิมของคุณ)
-        for (int i = 0; i < 5; i++) {
-            masterDeck.add(new Card("Strike", CardType.ATTACK).damage(8).cost(1));
-            masterDeck.add(new Card("Defend", CardType.SKILL).block(8).cost(1));
-        }
+        masterDeck.addAll(CardLibrary.getStarterDeck());
     }
 
     // --- แก้ไขจุดนี้ ---

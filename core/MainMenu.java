@@ -1,20 +1,23 @@
+package core;
+
+import core.GameFrame;
+import core.AudioManager;
+import core.SaveManager;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
+import java.util.function.Consumer;
 import javax.imageio.ImageIO;
 
 public class MainMenu extends JFrame {
 
-    // ===== กำหนด path รูปภาพตรงนี้ =====
-    private static final String BG_IMAGE_PATH = "D:\\countless-lost-souls-drift-through-pale-field-of-flowers-their-faces-blurred-in-ethereal-landscape-twisted-tree-stands-in-center-reaching-dark-sky-whispering-secrets-photo.jpeg"; // เปลี่ยน path ได้เลย
-    // ====================================
+    private static final String BG_IMAGE_PATH = "D:\\countless-lost-souls-drift-through-pale-field-of-flowers-their-faces-blurred-in-ethereal-landscape-twisted-tree-stands-in-center-reaching-dark-sky-whispering-secrets-photo.jpeg";
 
     public static void main(String[] args) {
-        try {
-            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
-        } catch (Exception e) {}
+        try { UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName()); } catch (Exception e) {}
         SwingUtilities.invokeLater(() -> new MainMenu().setVisible(true));
     }
 
@@ -25,20 +28,19 @@ public class MainMenu extends JFrame {
         setLocationRelativeTo(null);
         setUndecorated(false);
 
-        // โหลดรูป background
-        BufferedImage bgImage = loadImage(BG_IMAGE_PATH);
+        AudioManager.playMusic(AudioManager.Track.LOBBY);
 
-        // สร้าง main panel วาด background
+        BufferedImage bgImage = loadImage(BG_IMAGE_PATH);
         BackgroundPanel mainPanel = new BackgroundPanel(bgImage);
         mainPanel.setLayout(new BorderLayout());
         setContentPane(mainPanel);
 
-        // overlay มืดเพื่อให้ข้อความอ่านง่าย
         mainPanel.add(buildTitlePanel(), BorderLayout.NORTH);
         mainPanel.add(buildCenterPanel(), BorderLayout.CENTER);
         mainPanel.add(buildFooterPanel(), BorderLayout.SOUTH);
     }
 
+    /** ถ้ามี save — ถามว่าจะเล่นต่อหรือเริ่มใหม่ */
     // ===== โหลดรูป =====
     private BufferedImage loadImage(String path) {
         try {
@@ -89,7 +91,7 @@ public class MainMenu extends JFrame {
         title.setAlignmentX(Component.CENTER_ALIGNMENT);
         title.setPreferredSize(new Dimension(900, 90));
 
-        JLabel subtitle = new JLabel("- A FANTASY DUNGEON ADVENTURE -", SwingConstants.CENTER);
+        JLabel subtitle = new JLabel("— A FANTASY DUNGEON ADVENTURE —", SwingConstants.CENTER);
         subtitle.setFont(new Font("Serif", Font.ITALIC, 18));
         subtitle.setForeground(new Color(200, 180, 120));
         subtitle.setAlignmentX(Component.CENTER_ALIGNMENT);
@@ -109,22 +111,200 @@ public class MainMenu extends JFrame {
         btnPanel.setLayout(new BoxLayout(btnPanel, BoxLayout.Y_AXIS));
         btnPanel.setOpaque(false);
 
-        JButton startBtn = createMenuButton("  BEGIN JOURNEY  ", new Color(120, 60, 10), new Color(200, 140, 40));
-        JButton settingsBtn = createMenuButton("  CHANGE IMAGE  ", new Color(30, 50, 80), new Color(80, 130, 200));
-        JButton exitBtn = createMenuButton("  QUIT GAME  ", new Color(80, 10, 10), new Color(180, 50, 50));
+        JButton newGameBtn = createMenuButton("  New Round  ", new Color(120, 60, 10), new Color(200, 140, 40));
+        JButton exitBtn    = createMenuButton("  Exit The Game  ", new Color(80, 10, 10), new Color(180, 50, 50));
 
-        startBtn.addActionListener(e -> { new GameFrame(); dispose(); });
-        settingsBtn.addActionListener(e -> changeBackgroundImage());
+        newGameBtn.addActionListener(e -> {
+            SaveManager.deleteSave();
+            AudioManager.stopMusic();
+            new GameFrame();
+            dispose();
+        });
         exitBtn.addActionListener(e -> System.exit(0));
 
-        btnPanel.add(startBtn);
-        btnPanel.add(Box.createRigidArea(new Dimension(0, 16)));
-        btnPanel.add(settingsBtn);
+        // ปุ่ม "เล่นต่อ" — แสดงเฉพาะตอนมี save
+        if (SaveManager.hasSave()) {
+            JButton continueBtn = createMenuButton("  Continue Game ", new Color(20, 80, 40), new Color(40, 160, 70));
+            continueBtn.addActionListener(e -> {
+                AudioManager.stopMusic();
+                new GameFrame(SaveManager.load());
+                dispose();
+            });
+            btnPanel.add(continueBtn);
+            btnPanel.add(Box.createRigidArea(new Dimension(0, 16)));
+        }
+
+        btnPanel.add(newGameBtn);
         btnPanel.add(Box.createRigidArea(new Dimension(0, 16)));
         btnPanel.add(exitBtn);
+        btnPanel.add(Box.createRigidArea(new Dimension(0, 16)));
+
+        // Settings button
+        JButton settingsBtn = createMenuButton("  ⚙  Settings  ", new Color(40, 40, 70), new Color(80, 80, 130));
+        settingsBtn.addActionListener(e -> openSettingsDialog());
+        btnPanel.add(settingsBtn);
 
         wrapper.add(btnPanel);
         return wrapper;
+    }
+
+    private void openSettingsDialog() {
+        JDialog dialog = new JDialog(this, "Settings", true);
+        dialog.setUndecorated(true);
+
+        JPanel root = new JPanel(new BorderLayout(0, 0)) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(new Color(10, 8, 20));
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 14, 14);
+                g2.setColor(new Color(100, 70, 30));
+                g2.setStroke(new java.awt.BasicStroke(2f));
+                g2.drawRoundRect(1, 1, getWidth()-2, getHeight()-2, 14, 14);
+            }
+        };
+        root.setOpaque(false);
+        root.setBorder(BorderFactory.createEmptyBorder(20, 28, 20, 28));
+
+        // Title
+        JLabel title = new JLabel("⚙  Settings", SwingConstants.CENTER);
+        title.setFont(new Font("Serif", Font.BOLD, 20));
+        title.setForeground(new Color(210, 175, 90));
+        title.setBorder(BorderFactory.createEmptyBorder(0, 0, 16, 0));
+        root.add(title, BorderLayout.NORTH);
+
+        // Audio panel
+        JPanel audio = new JPanel();
+        audio.setOpaque(false);
+        audio.setLayout(new BoxLayout(audio, BoxLayout.Y_AXIS));
+
+        JLabel audioTitle = new JLabel("♪  Audio");
+        audioTitle.setFont(new Font("Serif", Font.BOLD, 14));
+        audioTitle.setForeground(new Color(190, 160, 90));
+        audioTitle.setAlignmentX(Component.LEFT_ALIGNMENT);
+        audio.add(audioTitle);
+        audio.add(Box.createRigidArea(new Dimension(0, 10)));
+
+        audio.add(buildVolumeRow("Music",
+                AudioManager.isMusicEnabled(), AudioManager.getMusicVolume(),
+                AudioManager::setMusicEnabled, AudioManager::setMusicVolume));
+        audio.add(Box.createRigidArea(new Dimension(0, 8)));
+        audio.add(buildVolumeRow("Effects",
+                AudioManager.isSfxEnabled(), AudioManager.getSfxVolume(),
+                AudioManager::setSfxEnabled, AudioManager::setSfxVolume));
+
+        root.add(audio, BorderLayout.CENTER);
+
+        // Close button
+        JButton closeBtn = createSmallBtn("  Close  ", new Color(80, 30, 30));
+        closeBtn.setPreferredSize(new Dimension(100, 32));
+        closeBtn.addActionListener(e -> dialog.dispose());
+        JPanel south = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        south.setOpaque(false);
+        south.setBorder(BorderFactory.createEmptyBorder(14, 0, 0, 0));
+        south.add(closeBtn);
+        root.add(south, BorderLayout.SOUTH);
+
+        // ESC closes
+        root.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW)
+                .put(KeyStroke.getKeyStroke(java.awt.event.KeyEvent.VK_ESCAPE, 0), "close");
+        root.getActionMap().put("close", new javax.swing.AbstractAction() {
+            public void actionPerformed(java.awt.event.ActionEvent e) { dialog.dispose(); }
+        });
+
+        dialog.setContentPane(root);
+        dialog.pack();
+        dialog.setMinimumSize(new Dimension(320, 220));
+        dialog.setLocationRelativeTo(this);
+        dialog.setVisible(true);
+    }
+
+    private JPanel buildVolumeRow(String label, boolean initEnabled, float initVol,
+                                  Consumer<Boolean> onToggle,
+                                  Consumer<Float> onVol) {
+        JPanel row = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
+        row.setOpaque(false);
+        row.setMaximumSize(new Dimension(400, 30));
+        row.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        // Label
+        JLabel lbl = new JLabel(label);
+        lbl.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        lbl.setForeground(new Color(190, 175, 140));
+        lbl.setPreferredSize(new Dimension(60, 24));
+        row.add(lbl);
+
+        // Toggle ON/OFF
+        JButton toggle = createSmallBtn(initEnabled ? "ON" : "OFF",
+                initEnabled ? new Color(30, 100, 40) : new Color(100, 30, 30));
+        toggle.setPreferredSize(new Dimension(42, 24));
+        toggle.addActionListener(e -> {
+            boolean nowOn = toggle.getText().equals("OFF");
+            toggle.setText(nowOn ? "ON" : "OFF");
+            // เปลี่ยนสีปุ่ม
+            toggle.setBackground(nowOn ? new Color(30, 100, 40) : new Color(100, 30, 30));
+            onToggle.accept(nowOn);
+            toggle.repaint();
+        });
+        row.add(toggle);
+
+        // ปุ่ม −
+        JButton minus = createSmallBtn("−", new Color(60, 50, 80));
+        minus.setPreferredSize(new Dimension(28, 24));
+
+        // Volume label
+        int[] volPct = {(int)(initVol * 100)};
+        JLabel volLbl = new JLabel(volPct[0] + "%");
+        volLbl.setFont(new Font("SansSerif", Font.BOLD, 12));
+        volLbl.setForeground(new Color(220, 200, 150));
+        volLbl.setPreferredSize(new Dimension(40, 24));
+        volLbl.setHorizontalAlignment(SwingConstants.CENTER);
+
+        // ปุ่ม +
+        JButton plus = createSmallBtn("+", new Color(60, 50, 80));
+        plus.setPreferredSize(new Dimension(28, 24));
+
+        minus.addActionListener(e -> {
+            volPct[0] = Math.max(0, volPct[0] - 10);
+            volLbl.setText(volPct[0] + "%");
+            onVol.accept(volPct[0] / 100f);
+        });
+        plus.addActionListener(e -> {
+            volPct[0] = Math.min(100, volPct[0] + 10);
+            volLbl.setText(volPct[0] + "%");
+            onVol.accept(volPct[0] / 100f);
+        });
+
+        row.add(minus);
+        row.add(volLbl);
+        row.add(plus);
+
+        return row;
+    }
+
+    private JButton createSmallBtn(String text, Color bg) {
+        JButton btn = new JButton(text) {
+            @Override protected void paintComponent(Graphics g) {
+                Graphics2D g2 = (Graphics2D) g;
+                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+                g2.setColor(getBackground());
+                g2.fillRoundRect(0, 0, getWidth(), getHeight(), 6, 6);
+                g2.setColor(getBackground().brighter());
+                g2.setStroke(new java.awt.BasicStroke(1f));
+                g2.drawRoundRect(1, 1, getWidth()-2, getHeight()-2, 6, 6);
+                g2.setFont(new Font("SansSerif", Font.BOLD, 12));
+                g2.setColor(Color.WHITE);
+                FontMetrics fm = g2.getFontMetrics();
+                g2.drawString(getText(), (getWidth()-fm.stringWidth(getText()))/2,
+                        (getHeight()+fm.getAscent()-fm.getDescent())/2);
+            }
+            @Override protected void paintBorder(Graphics g) {}
+        };
+        btn.setBackground(bg);
+        btn.setContentAreaFilled(false);
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return btn;
     }
 
     // ===== Footer =====
@@ -140,7 +320,7 @@ public class MainMenu extends JFrame {
         };
         panel.setOpaque(false);
         panel.setPreferredSize(new Dimension(900, 50));
-        JLabel ver = new JLabel("v0.1  |  Use arrow keys or mouse to play", SwingConstants.CENTER);
+        JLabel ver = new JLabel("v0.1  |  Dare you descend?", SwingConstants.CENTER);
         ver.setForeground(new Color(150, 130, 90));
         ver.setFont(new Font("SansSerif", Font.PLAIN, 12));
         panel.setLayout(new BorderLayout());
@@ -198,29 +378,7 @@ public class MainMenu extends JFrame {
         return btn;
     }
 
-    // ===== เปลี่ยนรูป Background ผ่าน File Chooser =====
-    private void changeBackgroundImage() {
-        JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Select Background Image");
-        chooser.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter(
-                "Images (png, jpg, jpeg, gif)", "png", "jpg", "jpeg", "gif"));
 
-        int result = chooser.showOpenDialog(this);
-        if (result == JFileChooser.APPROVE_OPTION) {
-            File selected = chooser.getSelectedFile();
-            try {
-                BufferedImage newBg = ImageIO.read(selected);
-                ((BackgroundPanel) getContentPane()).setBackground(newBg);
-                repaint();
-                JOptionPane.showMessageDialog(this,
-                        "Image loaded!\nPath: " + selected.getAbsolutePath()
-                                + "\n\nCopy path above to BG_IMAGE_PATH in MainMenu.java\nto load automatically next time.",
-                        "Image Changed", JOptionPane.INFORMATION_MESSAGE);
-            } catch (Exception ex) {
-                JOptionPane.showMessageDialog(this, "Cannot load image!", "Error", JOptionPane.ERROR_MESSAGE);
-            }
-        }
-    }
 
     // ===== Panel วาด background image หรือ gradient ถ้าไม่มีรูป =====
     static class BackgroundPanel extends JPanel {

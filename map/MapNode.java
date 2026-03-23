@@ -1,3 +1,5 @@
+package map;
+
 public class MapNode {
     public enum NodeType { BATTLE, ELITE, BOSS, EVENT, SHOP, REST }
 
@@ -5,13 +7,14 @@ public class MapNode {
     private int col, row;
     private boolean visited = false;
     private boolean available = false;
-    private boolean locked = false;  // ถูกปิดถาวรเพราะเลือก node อื่นในคอลัมน์นี้แล้ว
+    private boolean locked = false;
 
     public MapNode(NodeType type, int col, int row) {
         this.type = type; this.col = col; this.row = row;
     }
 
     public NodeType getType()           { return type; }
+    public void setType(NodeType t)     { this.type = t; }
     public int getCol()                 { return col; }
     public int getRow()                 { return row; }
     public boolean isVisited()          { return visited; }
@@ -23,20 +26,29 @@ public class MapNode {
 
     public String getIcon() {
         switch (type) {
-            case BATTLE: return "⚔";  case ELITE: return "☠";
-            case BOSS:   return "♛";  case EVENT: return "?";
-            case SHOP:   return "$";  case REST:  return "♨";
+            case BATTLE: return "\u2694";  // ⚔
+            case ELITE:  return "\u2620";  // ☠
+            case BOSS:   return "\u265B";  // ♛
+            case EVENT:  return "?";
+            case SHOP:   return "$";
+            case REST:   return "\u2668";  // ♨
             default: return "?";
         }
     }
+
     public String getLabel() {
         switch (type) {
-            case BATTLE: return "Battle"; case ELITE: return "Elite";
-            case BOSS:   return "BOSS";   case EVENT: return "Event";
-            case SHOP:   return "Shop";   case REST:  return "Rest";
+            case BATTLE: return "\n" +
+                    "Monster";    // ต่อสู้
+            case ELITE:  return "Elite Monster";           // เอลิท
+            case BOSS:   return "Boss";                        // บอส
+            case EVENT:  return "Event"; // เหตุการณ์
+            case SHOP:   return "Shop"; // ร้านค้า
+            case REST:   return "Rest"; // พักผ่อน
             default: return "???";
         }
     }
+
     public java.awt.Color getColor() {
         switch (type) {
             case BATTLE: return new java.awt.Color(160, 55, 55);

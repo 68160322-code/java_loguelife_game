@@ -1,3 +1,11 @@
+package event;
+
+import core.GameState;
+import card.Card;
+import card.CardType;
+import item.Relic;
+import event.EventManager;
+
 import javax.swing.*;
 import javax.swing.border.*;
 import java.awt.*;
@@ -25,7 +33,7 @@ public class ShopManager {
         upgraded   = false;
 
         // สร้าง dialog ครั้งเดียว แล้วส่งต่อให้ buildContent refresh
-        JDialog dialog = new JDialog(parent, "Magic Shop", true);
+        JDialog dialog = new JDialog(parent, "The Wandering Merchant", true);
         dialog.setDefaultCloseOperation(JDialog.DO_NOTHING_ON_CLOSE);
         dialog.setMinimumSize(new Dimension(680, 400));
         refreshShopContent(dialog, parent, state);
@@ -49,7 +57,7 @@ public class ShopManager {
         content.setBorder(new EmptyBorder(10, 14, 10, 14));
 
         // ── Cards ──
-        JPanel cardsSection = buildSection("⚔  Cards for Sale");
+        JPanel cardsSection = buildSection("⚔  Tomes & Scrolls");
         JPanel cardsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         cardsRow.setBackground(new Color(18, 15, 30));
         for (int i = 0; i < shopCards.length; i++) {
@@ -57,13 +65,21 @@ public class ShopManager {
             final int price = getCardPrice(shopCards[i]);
             cardsRow.add(buildCardItem(shopCards[i], price, cardSold[i], parent, state, () -> {
                 if (cardSold[idx]) {
-                    msg(parent, "Already sold!", "Shop");
+                    msg(parent, "This relic has found another master.", "ร้านค้า");
                 } else if (state.spendGold(price)) {
-                    state.getDeck().addToMasterDeck(shopCards[idx]);
+                    card.Card obj = shopCards[idx];
+                    // apply class rules ก่อน add (Knight: poison skill → POISON)
+                    core.PlayerClass pc = state.getPlayer().getPlayerClass();
+                    if (pc != null) {
+                        java.util.ArrayList<card.Card> single = new java.util.ArrayList<>();
+                        single.add(obj);
+                        pc.applyClassRules(single);
+                    }
+                    state.getDeck().addToMasterDeck(obj);
                     cardSold[idx] = true;
                     refreshShopContent(dialog, parent, state); // refresh dialog เดิม
                 } else {
-                    msg(parent, "Not enough gold!", "Shop");
+                    msg(parent, "ทองไม่พอ!", "ร้านค้า");
                 }
             }));
         }
@@ -74,7 +90,7 @@ public class ShopManager {
         JPanel bottomRow = new JPanel(new GridLayout(1, 2, 10, 0));
         bottomRow.setBackground(new Color(12, 10, 22));
 
-        JPanel relicsSection = buildSection("✦  Relics");
+        JPanel relicsSection = buildSection("✦  Dark Relics");
         JPanel relicsRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         relicsRow.setBackground(new Color(18, 15, 30));
         for (int i = 0; i < shopRelics.length; i++) {
@@ -82,13 +98,13 @@ public class ShopManager {
             final int price = relicPrices[i];
             relicsRow.add(buildRelicItem(shopRelics[i], price, relicSold[i], parent, state, () -> {
                 if (relicSold[idx]) {
-                    msg(parent, "Already sold!", "Shop");
+                    msg(parent, "This relic has found another master.", "ร้านค้า");
                 } else if (state.spendGold(price)) {
                     state.getPlayer().addRelic(shopRelics[idx]);
                     relicSold[idx] = true;
                     refreshShopContent(dialog, parent, state);
                 } else {
-                    msg(parent, "Not enough gold!", "Shop");
+                    msg(parent, "ทองไม่พอ!", "ร้านค้า");
                 }
             }));
         }
@@ -111,7 +127,7 @@ public class ShopManager {
                         state.getPlayer().heal(healAmt);
                         msg(parent, "Healed +" + healAmt + " HP!", "Healed");
                         refreshShopContent(dialog, parent, state);
-                    } else msg(parent, "Not enough gold! Need 50G", "Shop");
+                    } else msg(parent, "Not enough gold! Need 50G", "ร้านค้า");
                 }));
         servicesCol.add(Box.createRigidArea(new Dimension(0, 8)));
 
@@ -121,12 +137,12 @@ public class ShopManager {
                 upgraded ? "Already used this visit" : "Pick a card from your deck to upgrade",
                 upgraded ? new Color(45, 45, 65) : new Color(120, 80, 20),
                 !upgraded && state.getGold() >= 75, parent, state, () -> {
-                    if (upgraded) { msg(parent, "Already used this visit!", "Shop"); return; }
+                    if (upgraded) { msg(parent, "Already used this visit!", "ร้านค้า"); return; }
                     if (state.spendGold(75)) {
                         pickAndUpgradeCard(parent, state);
                         upgraded = true;
                         refreshShopContent(dialog, parent, state);
-                    } else msg(parent, "Not enough gold! Need 75G", "Shop");
+                    } else msg(parent, "Not enough gold! Need 75G", "ร้านค้า");
                 }));
         servicesCol.add(Box.createRigidArea(new Dimension(0, 8)));
 
@@ -137,7 +153,7 @@ public class ShopManager {
                     if (state.spendGold(50)) {
                         pickAndRemoveCard(parent, state);
                         refreshShopContent(dialog, parent, state);
-                    } else msg(parent, "Not enough gold! Need 50G", "Shop");
+                    } else msg(parent, "Not enough gold! Need 50G", "ร้านค้า");
                 }));
 
         servicesSection.add(servicesCol, BorderLayout.CENTER);
@@ -154,7 +170,7 @@ public class ShopManager {
         root.add(scrollPane, BorderLayout.CENTER);
 
         // Leave button
-        JButton leaveBtn = new JButton("Leave Shop") {
+        JButton leaveBtn = new JButton("Leave") {
             @Override protected void paintComponent(Graphics g) {
                 Graphics2D g2 = (Graphics2D) g;
                 g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -201,8 +217,8 @@ public class ShopManager {
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(12, 16, 12, 16));
 
-        JLabel title = new JLabel("✦  Magic Shop  ✦");
-        title.setFont(new Font("Serif", Font.BOLD, 22));
+        JLabel title = new JLabel("✦  The Wandering Merchant  ✦");
+        title.setFont(new Font("SansSerif", Font.BOLD, 22));
         title.setForeground(new Color(255, 210, 80));
         header.add(title, BorderLayout.WEST);
 
@@ -224,7 +240,7 @@ public class ShopManager {
                 new EmptyBorder(8, 8, 8, 8)));
 
         JLabel lbl = new JLabel(sectionTitle);
-        lbl.setFont(new Font("Serif", Font.BOLD, 13));
+        lbl.setFont(new Font("SansSerif", Font.BOLD, 13));
         lbl.setForeground(new Color(200, 175, 255));
         lbl.setBorder(new EmptyBorder(0, 0, 4, 0));
         section.add(lbl, BorderLayout.NORTH);
@@ -254,9 +270,9 @@ public class ShopManager {
                 // SOLD overlay
                 if (sold) {
                     g2.setColor(new Color(255, 80, 80, 120));
-                    g2.setFont(new Font("Serif", Font.BOLD, 18));
+                    g2.setFont(new Font("SansSerif", Font.BOLD, 18));
                     FontMetrics fm = g2.getFontMetrics();
-                    g2.drawString("SOLD", (getWidth()-fm.stringWidth("SOLD"))/2, getHeight()/2+6);
+                    g2.drawString("Sold", (getWidth()-fm.stringWidth("Sold"))/2, getHeight()/2+6);
                 }
             }
         };
@@ -274,14 +290,21 @@ public class ShopManager {
         }
 
         JLabel nameL = new JLabel(card.getName(), SwingConstants.CENTER);
-        nameL.setFont(new Font("Serif", Font.BOLD, 13));
+        nameL.setFont(new Font("SansSerif", Font.BOLD, 13));
         nameL.setForeground(sold ? new Color(80, 75, 100) : Color.WHITE);
         nameL.setAlignmentX(Component.CENTER_ALIGNMENT);
-        nameL.setBorder(new EmptyBorder(10, 4, 2, 4));
+        nameL.setBorder(new EmptyBorder(10, 4, 0, 4));
+
+        // Rarity badge
+        Color rarityColor = sold ? new Color(60, 58, 75) : card.getRarity().color();
+        JLabel rarityL = new JLabel("◆ " + card.getRarity().label(), SwingConstants.CENTER);
+        rarityL.setFont(new Font("SansSerif", Font.BOLD, 9));
+        rarityL.setForeground(rarityColor);
+        rarityL.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel typeL = new JLabel("[" + card.getType() + "]", SwingConstants.CENTER);
         typeL.setFont(new Font("SansSerif", Font.PLAIN, 10));
-        typeL.setForeground(sold ? new Color(70, 67, 88) : pal[2].brighter());
+        typeL.setForeground(sold ? new Color(70, 67, 88) : new Color(170, 165, 190));
         typeL.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JPanel div = new JPanel(); div.setOpaque(false);
@@ -296,14 +319,14 @@ public class ShopManager {
         descL.setAlignmentX(Component.CENTER_ALIGNMENT);
         descL.setBorder(new EmptyBorder(4, 6, 2, 6));
 
-        JLabel priceL = new JLabel(sold ? "SOLD" : price + "G  |  ⚡" + card.getCost(), SwingConstants.CENTER);
+        JLabel priceL = new JLabel(sold ? "Sold" : price + "G  |  ⚡" + card.getCost(), SwingConstants.CENTER);
         priceL.setFont(new Font("SansSerif", Font.BOLD, 11));
         priceL.setForeground(sold ? new Color(180, 60, 60)
                 : state.getGold() >= price ? new Color(255, 210, 60) : new Color(200, 80, 80));
         priceL.setAlignmentX(Component.CENTER_ALIGNMENT);
         priceL.setBorder(new EmptyBorder(0, 0, 8, 0));
 
-        panel.add(nameL); panel.add(typeL);
+        panel.add(nameL); panel.add(rarityL); panel.add(typeL);
         panel.add(Box.createRigidArea(new Dimension(0, 4)));
         panel.add(div); panel.add(descL);
         panel.add(Box.createVerticalGlue()); panel.add(priceL);
@@ -325,9 +348,9 @@ public class ShopManager {
                 g2.setStroke(new BasicStroke(1));
                 if (sold) {
                     g2.setColor(new Color(255, 80, 80, 120));
-                    g2.setFont(new Font("Serif", Font.BOLD, 16));
+                    g2.setFont(new Font("SansSerif", Font.BOLD, 16));
                     FontMetrics fm = g2.getFontMetrics();
-                    g2.drawString("SOLD", (getWidth()-fm.stringWidth("SOLD"))/2, getHeight()/2+5);
+                    g2.drawString("Sold", (getWidth()-fm.stringWidth("Sold"))/2, getHeight()/2+5);
                 }
             }
         };
@@ -342,11 +365,18 @@ public class ShopManager {
             });
         }
 
-        JLabel nameL = new JLabel("✦ " + relic.getName(), SwingConstants.CENTER);
-        nameL.setFont(new Font("Serif", Font.BOLD, 12));
+        JLabel nameL = new JLabel("> " + relic.getName(), SwingConstants.CENTER);
+        nameL.setFont(new Font("SansSerif", Font.BOLD, 12));
         nameL.setForeground(sold ? new Color(80, 75, 60) : new Color(255, 215, 80));
         nameL.setAlignmentX(Component.CENTER_ALIGNMENT);
-        nameL.setBorder(new EmptyBorder(8, 6, 2, 6));
+        nameL.setBorder(new EmptyBorder(8, 6, 0, 6));
+
+        // Rarity badge
+        Color relicRarityColor = sold ? new Color(70, 65, 50) : relic.getRarity().color();
+        JLabel rarityL = new JLabel("◆ " + relic.getRarity().label(), SwingConstants.CENTER);
+        rarityL.setFont(new Font("SansSerif", Font.BOLD, 9));
+        rarityL.setForeground(relicRarityColor);
+        rarityL.setAlignmentX(Component.CENTER_ALIGNMENT);
 
         JLabel descL = new JLabel("<html><div style='text-align:center;width:130px'>"
                 + relic.getDescription() + "</div></html>", SwingConstants.CENTER);
@@ -355,14 +385,14 @@ public class ShopManager {
         descL.setAlignmentX(Component.CENTER_ALIGNMENT);
         descL.setBorder(new EmptyBorder(2, 6, 2, 6));
 
-        JLabel priceL = new JLabel(sold ? "SOLD" : price + "G", SwingConstants.CENTER);
+        JLabel priceL = new JLabel(sold ? "Sold" : price + "G", SwingConstants.CENTER);
         priceL.setFont(new Font("SansSerif", Font.BOLD, 12));
         priceL.setForeground(sold ? new Color(180, 60, 60)
                 : state.getGold() >= price ? new Color(255, 210, 60) : new Color(200, 80, 80));
         priceL.setAlignmentX(Component.CENTER_ALIGNMENT);
         priceL.setBorder(new EmptyBorder(2, 0, 8, 0));
 
-        panel.add(nameL); panel.add(descL);
+        panel.add(nameL); panel.add(rarityL); panel.add(descL);
         panel.add(Box.createVerticalGlue()); panel.add(priceL);
         return panel;
     }
@@ -416,19 +446,19 @@ public class ShopManager {
     /** แสดง dialog ให้เลือกการ์ดที่จะ Upgrade */
     private static void pickAndUpgradeCard(JFrame parent, GameState state) {
         ArrayList<Card> deck = state.getDeck().getMasterDeck();
-        if (deck.isEmpty()) { msg(parent, "Your deck is empty!", "Shop"); return; }
+        if (deck.isEmpty()) { msg(parent, "Your deck is empty!", "ร้านค้า"); return; }
 
         Card chosen = showCardPickerDialog(parent, deck, "🔨  Choose a Card to Upgrade");
         if (chosen != null) {
             chosen.upgrade();
-            msg(parent, "✦ Upgraded: " + chosen.getName(), "Upgrade Complete");
+            msg(parent, "✦ Forged: " + chosen.getName(), "Forged!");
         }
     }
 
     /** แสดง dialog ให้เลือกการ์ดที่จะ Remove */
     private static void pickAndRemoveCard(JFrame parent, GameState state) {
         ArrayList<Card> deck = state.getDeck().getMasterDeck();
-        if (deck.size() <= 1) { msg(parent, "Your deck is too small to remove from!", "Shop"); return; }
+        if (deck.size() <= 1) { msg(parent, "Your deck is too small to remove from!", "ร้านค้า"); return; }
 
         Card chosen = showCardPickerDialog(parent, deck, "🗑  Choose a Card to Remove");
         if (chosen != null) {
@@ -446,7 +476,7 @@ public class ShopManager {
         root.setBorder(new EmptyBorder(12, 14, 12, 14));
 
         JLabel titleL = new JLabel(title, SwingConstants.CENTER);
-        titleL.setFont(new Font("Serif", Font.BOLD, 16));
+        titleL.setFont(new Font("SansSerif", Font.BOLD, 16));
         titleL.setForeground(new Color(210, 185, 255));
         root.add(titleL, BorderLayout.NORTH);
 
@@ -478,7 +508,7 @@ public class ShopManager {
             cardPanel.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 
             JLabel nameL = new JLabel(card.getName(), SwingConstants.CENTER);
-            nameL.setFont(new Font("Serif", Font.BOLD, 12));
+            nameL.setFont(new Font("SansSerif", Font.BOLD, 12));
             nameL.setForeground(Color.WHITE);
             nameL.setAlignmentX(Component.CENTER_ALIGNMENT);
             nameL.setBorder(new EmptyBorder(8, 4, 2, 4));
@@ -540,31 +570,19 @@ public class ShopManager {
     }
 
     private static Card[] rollCards() {
-        Card[] pool = {
-                new Card("Heavy Blade",   CardType.ATTACK).damage(20).cost(2),
-                new Card("Twin Strike",   CardType.ATTACK).damage(7).multiHit().cost(1),
-                new Card("Uppercut",      CardType.ATTACK).damage(14).weak(1).cost(2),
-                new Card("Whirlwind",     CardType.ATTACK).energyBurst().cost(0),
-                new Card("Flaming Sword", CardType.ATTACK).damage(25).cost(3),
-                new Card("Iron Wave",     CardType.ATTACK).damage(8).block(8).cost(1),
-                new Card("Fortify",       CardType.SKILL).block(20).cost(2),
-                new Card("Deadly Poison", CardType.SKILL).poison(7).cost(1),
-                new Card("Battle Trance", CardType.SKILL).strength(2).cost(1),
-                new Card("Weaken",        CardType.SKILL).weak(3).cost(1),
-                new Card("Shield Wall",   CardType.SKILL).block(15).cost(2),
-                new Card("Quick Heal",    CardType.HEAL).heal(8).cost(1),
-                new Card("Second Wind",   CardType.HEAL).heal(14).cost(2),
+        // ใช้ CardLibrary สุ่ม 3 ใบ (เน้น Common/Rare, มี Epic บ้าง)
+        return new Card[]{
+                card.CardLibrary.rollShopCard(),
+                card.CardLibrary.rollShopCard(),
+                card.CardLibrary.rollShopCard()
         };
-        // สุ่ม 3 ใบไม่ซ้ำ
-        ArrayList<Card> list = new ArrayList<>(Arrays.asList(pool));
-        Collections.shuffle(list);
-        return new Card[]{list.get(0), list.get(1), list.get(2)};
     }
 
     private static Relic[] rollRelics() {
-        Relic r1 = EventManager.randomRelic();
-        Relic r2 = EventManager.randomRelic();
-        return new Relic[]{r1, r2};
+        return new Relic[]{
+                item.RelicLibrary.rollShopRelic(),
+                item.RelicLibrary.rollShopRelic()
+        };
     }
 
     private static Color[] cardPalette(CardType type) {

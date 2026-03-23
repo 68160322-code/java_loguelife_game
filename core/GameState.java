@@ -1,3 +1,13 @@
+package core;
+
+import entity.Player;
+import entity.Enemy;
+import entity.BossEnemy;
+import entity.RageBoss;
+import card.Deck;
+import item.Relic;
+import map.MapNode;
+
 import java.util.*;
 
 public class GameState {
@@ -9,10 +19,18 @@ public class GameState {
     private ArrayList<Relic> relics = new ArrayList<>();
 
     public GameState() {
-        this.player = new Player(80);  // HP เริ่มต้น 80 (เดิม 70)
+        this.player = new Player(80);
         this.deck   = new Deck();
         this.deck.startNewBattle();
         spawnEnemy();
+    }
+
+    /** Constructor สำหรับ SaveManager — ไม่ spawn enemy หรือ start battle */
+    public GameState(boolean loadMode) {
+        this.player = new Player(80);
+        this.deck   = new Deck();
+        this.deck.getMasterDeck().clear(); // ล้าง starter deck ออก SaveManager จะใส่เองz
+        spawnEnemy(); // spawn enemy placeholder ไว้ก่อน จะถูก override ตอนเข้าต่อสู้
     }
 
     // ── Enemy Spawning (balance: ลด HP ศัตรูลง ~15%) ──────────────────────
@@ -49,6 +67,8 @@ public class GameState {
     // ── Gold ──────────────────────────────────────────────────────────────
     public int getGold()             { return gold; }
     public void addGold(int amount)  { gold += amount; }
+    public void setGoldDirect(int g) { this.gold = g; }   // สำหรับ SaveManager
+    public void setLevelDirect(int l){ this.level = l; }  // สำหรับ SaveManager
     public boolean spendGold(int amount) {
         if (gold >= amount) { gold -= amount; return true; }
         return false;

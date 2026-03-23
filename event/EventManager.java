@@ -1,3 +1,10 @@
+package event;
+
+import core.GameState;
+import card.Card;
+import card.CardType;
+import item.Relic;
+
 import javax.swing.*;
 import java.util.*;
 
@@ -7,6 +14,18 @@ import java.util.*;
  */
 public class EventManager {
     private static final Random rand = new Random();
+
+
+    /** เพิ่มการ์ดเข้า deck พร้อม apply class rules */
+    private static void addCardToDeck(GameState s, Card c) {
+        core.PlayerClass pc = s.getPlayer().getPlayerClass();
+        if (pc != null) {
+            java.util.ArrayList<Card> single = new java.util.ArrayList<>();
+            single.add(c);
+            pc.applyClassRules(single);
+        }
+        s.getDeck().addToMasterDeck(c);
+    }
 
     public static void triggerEvent(JFrame parent, GameState state) {
         int idx = rand.nextInt(8);
@@ -25,9 +44,9 @@ public class EventManager {
     // ── Event 1: Ancient Altar ───────────────────────────────────────────────
     private static void eventAncientAltar(JFrame p, GameState s) {
         String[] opts = {
-                "Offer 25 HP  →  Gain a Relic",
-                "Offer 40G   →  Gain 2 Upgraded Cards",
-                "Leave in Peace"
+                "Offer blood (−25 HP) → Claim a Relic",
+                "Pay tribute (40G) → Gain 2 Upgraded Cards",
+                "Walk away"
         };
         int c = pick(p, "「 Ancient Altar 」\n\nA stone altar pulses with faint light.\nA cold voice whispers: \"What will you give?\"",
                 "Ancient Altar  ✦", opts);
@@ -36,25 +55,25 @@ public class EventManager {
             s.getPlayer().takeDamage(cost);
             Relic r = randomRelic();
             s.getPlayer().addRelic(r);
-            msg(p, "You spill " + cost + " HP on the altar.\nReceived: [" + r.getName() + "]\n\"" + r.getDescription() + "\"", "Offering Accepted");
+            msg(p, cost + " HP offered upon the altar.\nReceived: [" + r.getName() + "]\n\"" + r.getDescription() + "\"", "Offering Accepted");
         } else if (c == 1) {
             if (s.spendGold(40)) {
-                s.getDeck().addToMasterDeck(upgradedCard());
-                s.getDeck().addToMasterDeck(upgradedCard());
-                msg(p, "Gold dissolves into the stone.\nTwo powerful cards appear in your deck!", "Cards Received");
-            } else msg(p, "Not enough gold.", "Nothing Happens");
+                addCardToDeck(s, upgradedCard());
+                addCardToDeck(s, upgradedCard());
+                msg(p, "Gold seeps into stone.\nTwo dark cards manifest in your deck!", "Cards Received");
+            } else msg(p, "Insufficient gold.", "Nothing Stirs");
         }
     }
 
     // ── Event 2: Mysterious Trader ───────────────────────────────────────────
     private static void eventMysteriousTrader(JFrame p, GameState s) {
         String[] opts = {
-                "Trade a card  →  Gain 70G",
-                "Buy Mystery Relic  (50G)",
+                "Trade a card → Gain 70 Gold",
+                "Buy a mystery relic (50G)",
                 "Ignore"
         };
-        int c = pick(p, "「 Mysterious Trader 」\n\nA hooded figure steps from the shadow.\n\"I deal in rarities... Interested?\"",
-                "Mysterious Trader  ✦", opts);
+        int c = pick(p, "「 Shadow Trader 」\n\nA hooded figure steps from the shadow.\n\"I deal in rarities... Interested?\"",
+                "Shadow Trader  ✦", opts);
         if (c == 0) {
             ArrayList<Card> deck = s.getDeck().getMasterDeck();
             if (deck.size() > 1) {
@@ -67,7 +86,7 @@ public class EventManager {
                 Relic r = randomRelic();
                 s.getPlayer().addRelic(r);
                 msg(p, "The trader grins under the hood.\n[" + r.getName() + "]\n\"" + r.getDescription() + "\"", "Mystery Relic!");
-            } else msg(p, "Not enough gold.", "Declined");
+            } else msg(p, "Insufficient gold.", "Denied");
         }
     }
 
@@ -82,11 +101,11 @@ public class EventManager {
                 "Cursed Tome  ✦", opts);
         if (c == 0) {
             s.getPlayer().takeDamage(15);
-            for (int i = 0; i < 3; i++) s.getDeck().addToMasterDeck(upgradedCard());
-            msg(p, "Dark knowledge floods your mind.\n−15 HP  |  +3 powerful cards added!", "Knowledge is Pain");
+            for (int i = 0; i < 3; i++) addCardToDeck(s, upgradedCard());
+            msg(p, "Dark knowledge floods your mind.\n−15 HP  |  Three cursed cards bind to you!", "Knowledge is Suffering");
         } else if (c == 1) {
             s.addGold(45);
-            msg(p, "The book burns with purple flame.\nThe ash is worth 45 Gold.", "Book Burned");
+            msg(p, "The tome ignites in violet flame.\nIts ashes fetch 45 Gold.", "Burned");
         }
     }
 
@@ -97,18 +116,18 @@ public class EventManager {
                 "Scavenge  →  Find 30–60 Gold",
                 "Train  →  Max HP +8"
         };
-        int c = pick(p, "「 Abandoned Camp 」\n\nEmbers still glow in an old fire pit.\nSomeone was here — not long ago.",
-                "Abandoned Camp  ✦", opts);
+        int c = pick(p, "「 Abandoned Outpost 」\n\nEmbers still glow in an old fire pit.\nSomeone was here — not long ago.",
+                "Abandoned Outpost  ✦", opts);
         if (c == 0) {
             s.getPlayer().heal(25);
-            msg(p, "You rest by the warmth and recover 25 HP.", "Rested");
+            msg(p, "You slump beside the embers. 25 HP restored.", "Rested");
         } else if (c == 1) {
             int found = 30 + rand.nextInt(31);
             s.addGold(found);
-            msg(p, "You dig through old packs and find " + found + " Gold!", "Loot Found!");
+            msg(p, "You rummage through the wreckage and find " + found + " Gold!", "Plundered!");
         } else if (c == 2) {
             s.getPlayer().increaseMaxHp(8);
-            msg(p, "You train by the fire through the night.\nMax HP +8!", "Hardened");
+            msg(p, "You train until your bones ache.\nMax HP +8!", "Hardened");
         }
     }
 
@@ -118,13 +137,13 @@ public class EventManager {
                 "Sign it  →  +2 permanent Strength, −20 HP",
                 "Decline"
         };
-        int c = pick(p, "「 Blood Pact 」\n\nA demon holds out a glowing contract.\n\"Power for price, warrior. Simple enough.\"",
-                "Blood Pact  ✦", opts);
+        int c = pick(p, "「 Blood Covenant 」\n\nA demon holds out a glowing contract.\n\"Power for price, warrior. Simple enough.\"",
+                "Blood Covenant  ✦", opts);
         if (c == 0) {
             s.getPlayer().addStrength(2);
             s.getPlayer().takeDamage(20);
             s.getPlayer().addRelic(new Relic("Demon Mark", "Signed in blood: +2 Strength always active"));
-            msg(p, "You sign in blood.\n+2 Strength  |  −20 HP\n(Relic 'Demon Mark' added)", "Pact Sealed");
+            msg(p, "You sign in blood.\n+2 Strength  |  −20 HP\n(Relic: Demon Mark claimed)", "Pact Sealed");
         } else {
             msg(p, "\"Wise... for now.\" The demon vanishes in smoke.", "Declined");
         }
@@ -135,8 +154,8 @@ public class EventManager {
         int gold = 25 + rand.nextInt(35);
         Card heroCard = upgradedCard();
         s.addGold(gold);
-        s.getDeck().addToMasterDeck(heroCard);
-        msg(p, "「 Fallen Hero 」\n\nA warrior lies slumped against the wall.\nYou take what they no longer need.\n\n+"
+        addCardToDeck(s, heroCard);
+        msg(p, "「 The Fallen Warrior 」\n\nA warrior lies slumped against the wall.\nYou take what they no longer need.\n\n+"
                 + gold + " Gold  |  \"" + heroCard.getName() + "\" added to deck.", "Loot Collected");
     }
 
@@ -147,18 +166,18 @@ public class EventManager {
                 "Leave Offering (35G)  →  +1 Strength guaranteed",
                 "Ignore"
         };
-        int c = pick(p, "「 Shrine of Strength 」\n\nA warrior idol stands in a shaft of red light.\nIts eyes glow like hot coals.",
-                "Shrine of Strength  ✦", opts);
+        int c = pick(p, "「 Shrine of Wrath 」\n\nA warrior idol stands in a shaft of red light.\nIts eyes glow like hot coals.",
+                "Shrine of Wrath  ✦", opts);
         if (c == 0) {
             if (rand.nextBoolean()) {
                 s.getPlayer().addStrength(3);
-                msg(p, "The idol blazes!\n+3 Strength bestowed upon you!", "Blessed!");
-            } else msg(p, "The idol remains cold and still.\nNothing happens.", "Silence");
+                msg(p, "The idol blazes with unholy fire!\n+3 Strength bestowed!", "Blessed!");
+            } else msg(p, "The idol remains cold and indifferent.\nNothing stirs.", "Silence");
         } else if (c == 1) {
             if (s.spendGold(35)) {
                 s.getPlayer().addStrength(1);
-                msg(p, "Gold melts into the idol's base.\n+1 Strength!", "Offering Accepted");
-            } else msg(p, "Not enough gold.", "Declined");
+                msg(p, "Gold dissolves into the idol.\n+1 Strength!", "Offering Accepted");
+            } else msg(p, "Insufficient gold.", "Denied");
         }
     }
 
@@ -174,13 +193,13 @@ public class EventManager {
         if (c == 0) {
             if (rand.nextBoolean()) {
                 s.getPlayer().heal(30);
-                msg(p, "The toxin reacts like medicine!\n+30 HP.", "Lucky!");
+                msg(p, "The poison acts as medicine!\n+30 HP", "Fortune favors you!");
             } else {
                 s.getPlayer().takeDamage(20);
                 msg(p, "The poison burns through you.\n−20 HP.", "Poisoned!");
             }
         } else if (c == 1) {
-            s.getDeck().addToMasterDeck(new Card("Venom Flask", CardType.SKILL).poison(8).cost(1));
+            addCardToDeck(s, new Card("Venom Flask", CardType.SKILL, Card.Rarity.RARE).poison(8).cost(1));
             msg(p, "You fill a vial carefully.\n'Venom Flask' (Apply 8 Poison, 1 Energy) added!", "Bottled");
         }
     }
@@ -210,15 +229,15 @@ public class EventManager {
 
     public static Card upgradedCard() {
         Card[] pool = {
-                new Card("Heavy Blade+",  CardType.ATTACK).damage(25).cost(2),
-                new Card("Iron Wave+",    CardType.ATTACK).damage(12).block(12).cost(1),
-                new Card("Twin Strike+",  CardType.ATTACK).damage(9).multiHit().cost(1),
-                new Card("Uppercut+",     CardType.ATTACK).damage(18).weak(1).cost(2),
-                new Card("Whirlwind+",    CardType.ATTACK).energyBurst().cost(0),
-                new Card("Fortify+",      CardType.SKILL).block(24).cost(2),
-                new Card("Battle Surge",  CardType.SKILL).strength(3).cost(2),
-                new Card("Deadly Mist",   CardType.SKILL).poison(10).cost(2),
-                new Card("Life Tap",      CardType.HEAL).heal(14).cost(1),
+                new Card("Heavy Blade+", CardType.ATTACK, Card.Rarity.RARE).damage(25).cost(2),
+                new Card("Iron Wave+", CardType.ATTACK, Card.Rarity.RARE).damage(12).block(12).cost(1),
+                new Card("Twin Strike+", CardType.ATTACK, Card.Rarity.RARE).damage(9).multiHit().cost(1),
+                new Card("Uppercut+", CardType.ATTACK, Card.Rarity.RARE).damage(18).weak(1).cost(2),
+                new Card("Whirlwind+", CardType.ATTACK, Card.Rarity.EPIC).energyBurst().cost(0),
+                new Card("Fortify+", CardType.SKILL, Card.Rarity.RARE).block(24).cost(2),
+                new Card("Battle Surge", CardType.SKILL, Card.Rarity.RARE).strength(3).cost(2),
+                new Card("Deadly Mist", CardType.SKILL, Card.Rarity.RARE).poison(10).cost(2),
+                new Card("Life Tap", CardType.HEAL, Card.Rarity.RARE).heal(14).cost(1),
         };
         return pool[new Random().nextInt(pool.length)];
     }

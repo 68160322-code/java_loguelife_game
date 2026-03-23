@@ -1,3 +1,7 @@
+package entity;
+
+import entity.Enemy;
+
 public class RageBoss extends Enemy {
     private boolean isEnraged = false;
 
