@@ -4,7 +4,7 @@ import java.util.*;
 
 public class Enemy {
     protected int hp, maxHp, level;
-    protected int poison = 0, strength = 0, weak = 0;
+    protected int poison = 0, strength = 0, weak = 0, vulnerable = 0;
     protected String intent = "";
     protected int intentValue = 0;
     protected String name;
@@ -55,6 +55,11 @@ public class Enemy {
 
     // จัดการดาเมจที่ได้รับ
     public void takeDamage(int dmg) {
+        // Apply vulnerable multiplier
+        if (vulnerable > 0) {
+            dmg = (int)(dmg * 1.5);
+        }
+
         this.hp -= dmg;
         if (this.hp < 0) this.hp = 0; // ป้องกัน HP ติดลบ
     }
@@ -83,6 +88,19 @@ public class Enemy {
         if (weak > 0) weak--;
     }
 
+    public void addVulnerable(int turns) {
+        this.vulnerable += turns;
+    }
+
+    public void reduceVulnerable() {
+        if (vulnerable > 0) vulnerable--;
+    }
+
+    public void reduceStatusEffects() {
+        reduceWeak();
+        reduceVulnerable();
+    }
+
     // เช็คสถานะตัวละคร
     public boolean isDead() {
         return hp <= 0;
@@ -94,6 +112,7 @@ public class Enemy {
     public int getPoison() { return poison; }
     public int getWeak() { return weak; }
     public int getStrength() { return strength; }
+    public int getVulnerable() { return vulnerable; }
     public int getMaxHp(){ return maxHp; }
     public int getLevel() { return level; }
 }

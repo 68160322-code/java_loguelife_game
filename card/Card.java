@@ -32,7 +32,7 @@ public class Card {
     private String name;
     private CardType type;
     private Rarity rarity;
-    private int damage, heal, block, cost, poison, strength, weak;
+    private int damage, heal, block, cost, poison, strength, weak, vulnerable;
     private boolean exhaust;
     private boolean isUpgraded = false;
     private boolean multiHit = false;   // Twin Strike: ตี 2 ครั้ง
@@ -57,6 +57,7 @@ public class Card {
     public Card heal(int v) { this.heal = v; return this; }
     public Card strength(int v) { this.strength = v; return this; }
     public Card weak(int v) { this.weak = v; return this; }
+    public Card vulnerable(int v) { this.vulnerable = v; return this; }
     public Card exhaust() { this.exhaust = true; return this; }
     public Card multiHit() { this.multiHit = true; return this; }
     public Card energyBurst() { this.energyBurst = true; return this; }
@@ -81,6 +82,7 @@ public class Card {
         if (poison > 0) e.addPoison(poison);
         if (strength > 0) p.addStrength(strength);
         if (weak > 0) e.addWeak(weak);
+        if (vulnerable > 0) e.addVulnerable(vulnerable);
     }
 
     public void upgrade() {
@@ -110,12 +112,13 @@ public class Card {
             if (poison > 0)   this.poison   += upgradeAmount(poison,   rarity, 0.4f);
             if (strength > 0) this.strength += 1;
             if (weak > 0)     this.weak     += 1;
+            if (vulnerable > 0) this.vulnerable += 1;
             return;
         }
 
         // การ์ดที่มีแค่ effect เดียว: buff ใหญ่
         int effectCount = (damage>0?1:0) + (block>0?1:0) + (heal>0?1:0)
-                + (poison>0?1:0) + (strength>0?1:0) + (weak>0?1:0);
+                + (poison>0?1:0) + (strength>0?1:0) + (weak>0?1:0) + (vulnerable>0?1:0);
 
         if (effectCount == 1) {
             if (damage > 0)   this.damage   += upgradeAmount(damage,   rarity, 0.35f);
@@ -124,6 +127,7 @@ public class Card {
             if (poison > 0)   this.poison   += upgradeAmount(poison,   rarity, 0.35f);
             if (strength > 0) this.strength += 1;
             if (weak > 0)     this.weak     += 1;
+            if (vulnerable > 0) this.vulnerable += 1;
         } else {
             // การ์ดที่มีหลาย effect: buff เล็กลงแต่ครบทุก stat หรือลด cost
             boolean costReduced = false;
@@ -139,6 +143,7 @@ public class Card {
                 if (poison > 0)   this.poison   += upgradeAmount(poison,   rarity, 0.25f);
                 if (strength > 0) this.strength += 1;
                 if (weak > 0)     this.weak     += 1;
+                if (vulnerable > 0) this.vulnerable += 1;
             }
         }
     }
@@ -167,6 +172,7 @@ public class Card {
         if (heal > 0)     sb.append("[HEL] Heal <b>").append(heal).append("</b> HP<br>");
         if (strength > 0) sb.append("[STR] Gain <b>").append(strength).append("</b> strength<br>");
         if (weak > 0)     sb.append("[WEK] Apply <b>").append(weak).append("</b> weak<br>");
+        if (vulnerable > 0) sb.append("[VUL] Apply <b>").append(vulnerable).append("</b> vulnerable<br>");
         if (multiHit)    sb.append("[ATK] Hits <b>2x</b> " + damage + " each<br>");
         if (energyBurst) {
             int d = damage > 0 ? damage : 5;

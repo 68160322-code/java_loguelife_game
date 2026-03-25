@@ -12,6 +12,8 @@ public class Player {
     private int block = 0;
     private int strength = 0;
     private int weak = 0;
+    private int vulnerable = 0;  // ถูกโจมตีเสียหาย +50%
+    private int poison = 0;      // รับดาเมจต่อเทิร์น
     private int gold = 100;
 
     // ต้องอยู่ใน Player.java เท่านั้น!
@@ -112,8 +114,13 @@ public class Player {
     /** reset block เสมอ — เรียกตอนจบ battle (ทุก class) */
     public void forceResetBlock() { block = 0; }
 
-    /** takeDamage พร้อม Bone Charm, Phoenix Feather, Soul Anchor */
+    /** takeDamage พร้อม Bone Charm, Phoenix Feather, Soul Anchor, และ Vulnerable */
     public void takeDamage(int dmg) {
+        // Apply vulnerable multiplier
+        if (vulnerable > 0) {
+            dmg = (int)(dmg * 1.5);
+        }
+
         if (hasRelic(Relic.RelicType.BONE_CHARM)) dmg = Math.max(0, dmg - 1);
         if (block > 0) {
             if (block >= dmg) { block -= dmg; dmg = 0; }
@@ -157,6 +164,26 @@ public class Player {
     public void addWeak(int turns) { weak += turns; }
     public void reduceWeak() { if (weak > 0) weak--; }
 
+    public void addVulnerable(int turns) { vulnerable += turns; }
+    public void reduceVulnerable() { if (vulnerable > 0) vulnerable--; }
+
+    public void addPoison(int amount) { poison += amount; }
+    public void applyPoison() {
+        if (poison > 0) {
+            int poisonDmg = poison;
+            hp = Math.max(0, hp - poisonDmg);
+            poison = Math.max(0, poison - 1);
+        }
+    }
+
+    /**
+     * Reduce all status effects at end of turn
+     */
+    public void reduceStatusEffects() {
+        reduceWeak();
+        reduceVulnerable();
+    }
+
     // --- Level Up & Healing ---
     public void healPercent(int percent) {
         int amount = (int)(maxHp * (percent / 100.0));
@@ -176,6 +203,8 @@ public class Player {
     public int getBlock()     { return block; }
     public int getStrength()  { return strength; }
     public int getWeak()      { return weak; }
+    public int getVulnerable() { return vulnerable; }
+    public int getPoison()    { return poison; }
     public boolean isDead()   { return hp <= 0; }
 
     /** SaveManager ใช้เซ็ต stats โดยตรงตอนโหลด save */

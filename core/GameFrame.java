@@ -44,7 +44,6 @@ public class GameFrame extends JFrame {
     private boolean inBattle    = false;
     private boolean rewardShown = false; // ป้องกัน showRewardScreen ถูกเรียก 2 ครั้ง
     private boolean isLoadedGame = false;
-    private boolean isPlayerTurn = false;
 
     // ── Battle UI ────────────────────────────────────────────────────────────
     private JTextArea    logArea;
@@ -322,7 +321,7 @@ public class GameFrame extends JFrame {
 
     private void startBattle(MapNode.NodeType type) {
         inBattle     = true;
-        rewardShown = false;
+        rewardShown  = false; // reset ทุก battle ใหม่
         lastBattleType = type;
         state.nextLevelByType(type);
         if (enemyPanel != null) enemyPanel.setEnemy(state.getEnemy());
@@ -420,7 +419,6 @@ public class GameFrame extends JFrame {
 
     private JPanel buildSideButtons() {
         endTurnBtn     = sideButton("End Turn",  new Color(160, 60, 60),  new Color(120, 40, 40));
-        endTurnBtn.setEnabled(false);
         viewDeckBtn    = sideButton("Spellbook", new Color(50, 80, 130),  new Color(35, 60, 100));
         viewDiscardBtn = sideButton("Discard",   new Color(60, 60, 100),  new Color(40, 40, 80));
         JButton mapBtn   = sideButton("The Map",  new Color(80, 50, 120),  new Color(60, 35, 95));
@@ -492,11 +490,6 @@ public class GameFrame extends JFrame {
 
     // ── Turn Logic ────────────────────────────────────────────────────────────
     private void startPlayerTurn() {
-        if (rewardShown) return;
-
-        isPlayerTurn = true;
-        endTurnBtn.setEnabled(true);
-
         state.getPlayer().resetEnergy();
         state.getPlayer().resetBlock();
         state.getEnemy().decideIntent();
@@ -745,13 +738,7 @@ public class GameFrame extends JFrame {
     }
 
     private void endTurn() {
-        if (!isPlayerTurn) return;
-        isPlayerTurn = false;
-        endTurnBtn.setEnabled(false);
-
-        // ตรวจสอบ: ต้องอยู่ในการต่อสู้ AND ยังไม่แสดงรางวัล
-        if (!inBattle || rewardShown) return;
-
+        if (!inBattle || rewardShown) return; // ป้องกันกดซ้ำ
         // Relic: Heart of Storm
         if (state.getPlayer().hasRelic(item.Relic.RelicType.HEART_OF_STORM)) {
             state.getEnemy().addPoison(3);
@@ -760,15 +747,11 @@ public class GameFrame extends JFrame {
         for (Card c : currentHand) state.getDeck().discard(c);
         currentHand.clear(); handPanel.removeAll();
         enemyTurn();
-
-        // หลังจากศัตรูเล่นจบ
-        if (!state.getPlayer().isDead()) {
+        if (!rewardShown && !state.getPlayer().isDead()) {
             state.getPlayer().reduceWeak();
             state.getEnemy().reduceWeak();
             startPlayerTurn();
-        } else {
-            showGameOver();
-        }
+        } else if (!rewardShown) showGameOver();
     }
 
     private void enemyTurn() {
