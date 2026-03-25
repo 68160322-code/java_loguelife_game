@@ -24,7 +24,7 @@ public class ShopManager {
     private static boolean upgraded    = false; // Upgrade service ใช้ได้ครั้งเดียวต่อ visit
 
     public static void openShop(JFrame parent, GameState state) {
-        shopCards  = rollCards();
+        shopCards  = rollCards(state);
         shopRelics = rollRelics();
         cardSold   = new boolean[3];
         relicSold  = new boolean[2];
@@ -569,12 +569,12 @@ public class ShopManager {
         JOptionPane.showMessageDialog(parent, text, title, JOptionPane.INFORMATION_MESSAGE);
     }
 
-    private static Card[] rollCards() {
-        // ใช้ CardLibrary สุ่ม 3 ใบ (เน้น Common/Rare, มี Epic บ้าง)
+    private static Card[] rollCards(GameState state) {
+        core.PlayerClass pc = state.getPlayer().getPlayerClass();
         return new Card[]{
-                card.CardLibrary.rollShopCard(),
-                card.CardLibrary.rollShopCard(),
-                card.CardLibrary.rollShopCard()
+                card.CardLibrary.rollShopCard(pc),
+                card.CardLibrary.rollShopCard(pc),
+                card.CardLibrary.rollShopCard(pc)
         };
     }
 

@@ -41,8 +41,10 @@ public class GameFrame extends JFrame {
     private CardLayout cardLayout;
     private int lastMapCol = -1;
     private int lastMapRow = -1;
-    private boolean inBattle = false;
+    private boolean inBattle    = false;
+    private boolean rewardShown = false; // ป้องกัน showRewardScreen ถูกเรียก 2 ครั้ง
     private boolean isLoadedGame = false;
+    private boolean isPlayerTurn = false;
 
     // ── Battle UI ────────────────────────────────────────────────────────────
     private JTextArea    logArea;
@@ -58,13 +60,12 @@ public class GameFrame extends JFrame {
 
     // ─────────────────────────────────────────────────────────────────────────
     public GameFrame() {
-        state = new GameState();
-        setupWindow();
-        // เลือก class ก่อนเริ่ม
+        // เลือก class ก่อน แล้วค่อยสร้าง GameState พร้อม class-specific deck
         PlayerClass chosen = showClassSelectDialog();
-        state.getPlayer().setPlayerClass(chosen);
-        // apply class rules ให้ deck (Knight: poison skill → POISON type)
+        state = new GameState(chosen);
+        // apply class rules (Knight: poison skill → POISON type)
         if (chosen != null) chosen.applyClassRules(state.getDeck().getMasterDeck());
+        setupWindow();
         buildCardLayout();
         showMap();
         setVisible(true);
@@ -320,7 +321,8 @@ public class GameFrame extends JFrame {
     private MapNode.NodeType lastBattleType = MapNode.NodeType.BATTLE;
 
     private void startBattle(MapNode.NodeType type) {
-        inBattle = true;
+        inBattle     = true;
+        rewardShown = false;
         lastBattleType = type;
         state.nextLevelByType(type);
         if (enemyPanel != null) enemyPanel.setEnemy(state.getEnemy());
@@ -418,6 +420,7 @@ public class GameFrame extends JFrame {
 
     private JPanel buildSideButtons() {
         endTurnBtn     = sideButton("End Turn",  new Color(160, 60, 60),  new Color(120, 40, 40));
+        endTurnBtn.setEnabled(false);
         viewDeckBtn    = sideButton("Spellbook", new Color(50, 80, 130),  new Color(35, 60, 100));
         viewDiscardBtn = sideButton("Discard",   new Color(60, 60, 100),  new Color(40, 40, 80));
         JButton mapBtn   = sideButton("The Map",  new Color(80, 50, 120),  new Color(60, 35, 95));
@@ -438,6 +441,11 @@ public class GameFrame extends JFrame {
         panel.add(viewDiscardBtn); panel.add(mapBtn); panel.add(pauseBtn);
         panel.setPreferredSize(new Dimension(115, 0));
         return panel;
+    }
+
+    /** enable/disable battle action buttons */
+    private void setButtonsEnabled(boolean enabled) {
+        if (endTurnBtn != null) endTurnBtn.setEnabled(enabled);
     }
 
     private JButton sideButton(String text, Color light, Color dark) {
@@ -484,6 +492,11 @@ public class GameFrame extends JFrame {
 
     // ── Turn Logic ────────────────────────────────────────────────────────────
     private void startPlayerTurn() {
+        if (rewardShown) return;
+
+        isPlayerTurn = true;
+        endTurnBtn.setEnabled(true);
+
         state.getPlayer().resetEnergy();
         state.getPlayer().resetBlock();
         state.getEnemy().decideIntent();
@@ -723,6 +736,7 @@ public class GameFrame extends JFrame {
             if (enemyPanel != null) enemyPanel.playDieAnim();
             state.getPlayer().onEnemyDefeated();
             log("Foe slain!");
+            setButtonsEnabled(false); // ปิดปุ่มระหว่างรอ animation
             Timer t = new Timer(600, ev -> showRewardScreen());
             t.setRepeats(false); t.start();
             return;
@@ -731,7 +745,14 @@ public class GameFrame extends JFrame {
     }
 
     private void endTurn() {
-        // Relic: Heart of Storm — deal 3 poison to enemy at end of each turn
+        if (!isPlayerTurn) return;
+        isPlayerTurn = false;
+        endTurnBtn.setEnabled(false);
+
+        // ตรวจสอบ: ต้องอยู่ในการต่อสู้ AND ยังไม่แสดงรางวัล
+        if (!inBattle || rewardShown) return;
+
+        // Relic: Heart of Storm
         if (state.getPlayer().hasRelic(item.Relic.RelicType.HEART_OF_STORM)) {
             state.getEnemy().addPoison(3);
             log("Heart of Storm: Venomous tendrils coil around the foe!");
@@ -739,11 +760,15 @@ public class GameFrame extends JFrame {
         for (Card c : currentHand) state.getDeck().discard(c);
         currentHand.clear(); handPanel.removeAll();
         enemyTurn();
+
+        // หลังจากศัตรูเล่นจบ
         if (!state.getPlayer().isDead()) {
             state.getPlayer().reduceWeak();
             state.getEnemy().reduceWeak();
             startPlayerTurn();
-        } else showGameOver();
+        } else {
+            showGameOver();
+        }
     }
 
     private void enemyTurn() {
@@ -752,7 +777,7 @@ public class GameFrame extends JFrame {
         if (e.isDead()) { showRewardScreen(); return; }
         int dmg = e.attack();
         if (dmg > 0 && enemyPanel != null) enemyPanel.playAttackAnim();
-        if (dmg > 0 && playerModel != null) playerModel.playHurt(); // ผู้เล่นโดนตี
+        if (dmg > 0 && playerModel != null) playerModel.playHurt();
         state.getPlayer().takeDamage(dmg);
         log(e.getName() + " attacks for " + dmg + " damage.");
         updateLabels();
@@ -760,9 +785,12 @@ public class GameFrame extends JFrame {
 
     // ── Reward / Game Over ────────────────────────────────────────────────────
     private void showRewardScreen() {
+        if (rewardShown) return; // ป้องกันเรียกซ้ำ
+        rewardShown = true;
+        setButtonsEnabled(true);
         showCardRewardDialog();
         state.getPlayer().resetStrength();
-        state.getPlayer().forceResetBlock(); // reset block หลังจบ battle เสมอ
+        state.getPlayer().forceResetBlock();
         log("--- Level " + state.getLevel() + " cleared ---");
 
         if (lastBattleType == MapNode.NodeType.BOSS) {
@@ -818,7 +846,7 @@ public class GameFrame extends JFrame {
     }
 
     private ArrayList<Card> getRewardPool() {
-        return card.CardLibrary.getRewardPool(state.getLevel());
+        return card.CardLibrary.getRewardPool(state.getLevel(), state.getPlayer().getPlayerClass());
     }
 
     private void showCardRewardDialog() {

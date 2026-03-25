@@ -12,6 +12,10 @@ public class Deck {
         masterDeck.addAll(CardLibrary.getStarterDeck());
     }
 
+    public Deck(core.PlayerClass pc) {
+        masterDeck.addAll(CardLibrary.getStarterDeck(pc));
+    }
+
     // --- แก้ไขจุดนี้ ---
     public void startNewBattle() {
         // 1. ล้างกองการ์ดที่ใช้ในไฟต์ก่อนหน้าให้เกลี้ยง

@@ -84,15 +84,79 @@ public class Card {
     }
 
     public void upgrade() {
-        if (!isUpgraded) {
-            this.name += "+";
-            if (this.damage > 0) this.damage += 5;
-            if (this.block > 0) this.block += 4;
-            if (this.poison > 0) this.poison += 3;
-            if (this.heal > 0) this.heal += 4;
-            if (this.strength > 0) this.strength += 1;
-            this.isUpgraded = true;
+        if (isUpgraded) return;
+        this.name += "+";
+        this.isUpgraded = true;
+
+        // ── Upgrade logic ตาม card mechanic ──────────────────────────────────
+        // energyBurst (Whirlwind, Chaos Surge): ลด cost แทน
+        if (energyBurst) {
+            // cost 0 → 0 อยู่แล้ว แต่เพิ่ม strength bonus
+            this.strength += 1;
+            return;
         }
+
+        // multiHit (Twin Strike): เพิ่ม dmg ต่อหนึ่งฮิต
+        if (multiHit && damage > 0) {
+            this.damage += upgradeAmount(damage, rarity, 0.25f); // +25%
+            return;
+        }
+
+        // exhaust card: buff ใหญ่กว่าปกติ เพราะใช้ได้ครั้งเดียว
+        if (exhaust) {
+            if (damage > 0)   this.damage   += upgradeAmount(damage,   rarity, 0.4f);
+            if (block > 0)    this.block    += upgradeAmount(block,    rarity, 0.4f);
+            if (heal > 0)     this.heal     += upgradeAmount(heal,     rarity, 0.4f);
+            if (poison > 0)   this.poison   += upgradeAmount(poison,   rarity, 0.4f);
+            if (strength > 0) this.strength += 1;
+            if (weak > 0)     this.weak     += 1;
+            return;
+        }
+
+        // การ์ดที่มีแค่ effect เดียว: buff ใหญ่
+        int effectCount = (damage>0?1:0) + (block>0?1:0) + (heal>0?1:0)
+                + (poison>0?1:0) + (strength>0?1:0) + (weak>0?1:0);
+
+        if (effectCount == 1) {
+            if (damage > 0)   this.damage   += upgradeAmount(damage,   rarity, 0.35f);
+            if (block > 0)    this.block    += upgradeAmount(block,    rarity, 0.35f);
+            if (heal > 0)     this.heal     += upgradeAmount(heal,     rarity, 0.35f);
+            if (poison > 0)   this.poison   += upgradeAmount(poison,   rarity, 0.35f);
+            if (strength > 0) this.strength += 1;
+            if (weak > 0)     this.weak     += 1;
+        } else {
+            // การ์ดที่มีหลาย effect: buff เล็กลงแต่ครบทุก stat หรือลด cost
+            boolean costReduced = false;
+            if (cost >= 2 && damage > 0 && block > 0) {
+                // dual attack+block → ลด cost แทน buff stat
+                this.cost -= 1;
+                costReduced = true;
+            }
+            if (!costReduced) {
+                if (damage > 0)   this.damage   += upgradeAmount(damage,   rarity, 0.25f);
+                if (block > 0)    this.block    += upgradeAmount(block,    rarity, 0.25f);
+                if (heal > 0)     this.heal     += upgradeAmount(heal,     rarity, 0.25f);
+                if (poison > 0)   this.poison   += upgradeAmount(poison,   rarity, 0.25f);
+                if (strength > 0) this.strength += 1;
+                if (weak > 0)     this.weak     += 1;
+            }
+        }
+    }
+
+    /**
+     * คำนวณ upgrade amount ตาม base value และ rarity
+     * rarity สูง → % เพิ่มน้อยกว่า (เพราะ base value สูงอยู่แล้ว)
+     * รับประกัน minimum +1
+     */
+    private int upgradeAmount(int base, Rarity r, float pct) {
+        float multiplier;
+        switch (r) {
+            case RARE:      multiplier = 0.85f; break;
+            case EPIC:      multiplier = 0.70f; break;
+            case LEGENDARY: multiplier = 0.55f; break;
+            default:        multiplier = 1.00f; break;
+        }
+        return Math.max(1, Math.round(base * pct * multiplier));
     }
 
     public String getDescription() {

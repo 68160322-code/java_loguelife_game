@@ -58,8 +58,8 @@ public class EventManager {
             msg(p, cost + " HP offered upon the altar.\nReceived: [" + r.getName() + "]\n\"" + r.getDescription() + "\"", "Offering Accepted");
         } else if (c == 1) {
             if (s.spendGold(40)) {
-                addCardToDeck(s, upgradedCard());
-                addCardToDeck(s, upgradedCard());
+                addCardToDeck(s, upgradedCard(s));
+                addCardToDeck(s, upgradedCard(s));
                 msg(p, "Gold seeps into stone.\nTwo dark cards manifest in your deck!", "Cards Received");
             } else msg(p, "Insufficient gold.", "Nothing Stirs");
         }
@@ -101,7 +101,7 @@ public class EventManager {
                 "Cursed Tome  ✦", opts);
         if (c == 0) {
             s.getPlayer().takeDamage(15);
-            for (int i = 0; i < 3; i++) addCardToDeck(s, upgradedCard());
+            for (int i = 0; i < 3; i++) addCardToDeck(s, upgradedCard(s));
             msg(p, "Dark knowledge floods your mind.\n−15 HP  |  Three cursed cards bind to you!", "Knowledge is Suffering");
         } else if (c == 1) {
             s.addGold(45);
@@ -152,7 +152,7 @@ public class EventManager {
     // ── Event 6: Fallen Hero ─────────────────────────────────────────────────
     private static void eventFallenHero(JFrame p, GameState s) {
         int gold = 25 + rand.nextInt(35);
-        Card heroCard = upgradedCard();
+        Card heroCard = upgradedCard(s);
         s.addGold(gold);
         addCardToDeck(s, heroCard);
         msg(p, "「 The Fallen Warrior 」\n\nA warrior lies slumped against the wall.\nYou take what they no longer need.\n\n+"
@@ -227,18 +227,14 @@ public class EventManager {
         return pool[rand.nextInt(pool.length)];
     }
 
+    /** เรียก EventManager.upgradedCard(s) แทน เพื่อให้ class-aware */
+    public static Card upgradedCard(GameState s) {
+        Card c = card.CardLibrary.rollEventCard(s.getPlayer().getPlayerClass());
+        return c;
+    }
+
+    /** Backward-compat */
     public static Card upgradedCard() {
-        Card[] pool = {
-                new Card("Heavy Blade+", CardType.ATTACK, Card.Rarity.RARE).damage(25).cost(2),
-                new Card("Iron Wave+", CardType.ATTACK, Card.Rarity.RARE).damage(12).block(12).cost(1),
-                new Card("Twin Strike+", CardType.ATTACK, Card.Rarity.RARE).damage(9).multiHit().cost(1),
-                new Card("Uppercut+", CardType.ATTACK, Card.Rarity.RARE).damage(18).weak(1).cost(2),
-                new Card("Whirlwind+", CardType.ATTACK, Card.Rarity.EPIC).energyBurst().cost(0),
-                new Card("Fortify+", CardType.SKILL, Card.Rarity.RARE).block(24).cost(2),
-                new Card("Battle Surge", CardType.SKILL, Card.Rarity.RARE).strength(3).cost(2),
-                new Card("Deadly Mist", CardType.SKILL, Card.Rarity.RARE).poison(10).cost(2),
-                new Card("Life Tap", CardType.HEAL, Card.Rarity.RARE).heal(14).cost(1),
-        };
-        return pool[new Random().nextInt(pool.length)];
+        return card.CardLibrary.rollEventCard(null);
     }
 }

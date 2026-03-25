@@ -25,6 +25,15 @@ public class GameState {
         spawnEnemy();
     }
 
+    /** Constructor ที่รับ PlayerClass — ใช้ class-specific starter deck */
+    public GameState(PlayerClass pc) {
+        this.player = new Player(80);
+        this.player.setPlayerClass(pc);
+        this.deck   = new Deck(pc);
+        this.deck.startNewBattle();
+        spawnEnemy();
+    }
+
     /** Constructor สำหรับ SaveManager — ไม่ spawn enemy หรือ start battle */
     public GameState(boolean loadMode) {
         this.player = new Player(80);
