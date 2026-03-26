@@ -70,7 +70,7 @@ public class GameFrame extends JFrame {
         setVisible(true);
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override public void windowClosing(java.awt.event.WindowEvent e) {
-                SaveManager.save(state, mapScreen, lastMapCol, lastMapRow);
+                SaveManager.save(state, mapScreen, lastMapCol, lastMapRow, inBattle, lastBattleType);
             }
         });
     }
@@ -78,17 +78,26 @@ public class GameFrame extends JFrame {
     /** Constructor สำหรับโหลด save */
     public GameFrame(GameState loadedState) {
         state = loadedState;
-        // โหลดตำแหน่ง map ที่บันทึกไว้
         lastMapCol = SaveManager.loadMapCol();
         lastMapRow = SaveManager.loadMapRow();
         isLoadedGame = true;
         setupWindow();
         buildCardLayout();
-        showMap();
+
+        // ตรวจสอบว่าตอน save กำลังสู้อยู่ไหม
+        if (SaveManager.loadInBattle()) {
+            // ค้างอยู่ระหว่างการต่อสู้ → สร้าง map ก่อน แล้ว resume การต่อสู้
+            showMap();
+            MapNode.NodeType bt = SaveManager.loadBattleType();
+            resumeBattle(bt);  // ← ใช้ resumeBattle แทน startBattle เพื่อไม่ level++
+        } else {
+            showMap();
+        }
+
         setVisible(true);
         addWindowListener(new java.awt.event.WindowAdapter() {
             @Override public void windowClosing(java.awt.event.WindowEvent e) {
-                SaveManager.save(state, mapScreen, lastMapCol, lastMapRow);
+                SaveManager.save(state, mapScreen, lastMapCol, lastMapRow, inBattle, lastBattleType);
             }
         });
     }
@@ -248,7 +257,7 @@ public class GameFrame extends JFrame {
         inBattle = false;
         repaintMapHeader();
         AudioManager.playMusic(AudioManager.Track.MAP);
-        SaveManager.save(state, mapScreen, lastMapCol, lastMapRow);
+        SaveManager.save(state, mapScreen, lastMapCol, lastMapRow, false, null);
         cardLayout.show(mainPanel, "MAP");
     }
 
@@ -328,6 +337,35 @@ public class GameFrame extends JFrame {
         // reset ก่อน แล้วค่อย apply relic — ลำดับสำคัญมาก
         state.getPlayer().resetBattleState();
         state.getPlayer().applyBattleStartRelics();
+        if (type == MapNode.NodeType.BOSS || type == MapNode.NodeType.ELITE)
+            AudioManager.playMusic(AudioManager.Track.BOSS);
+        else
+            AudioManager.playMusic(AudioManager.Track.BATTLE);
+        // บันทึก save ทันทีที่เริ่มสู้ พร้อม flag inBattle=true
+        SaveManager.save(state, mapScreen, lastMapCol, lastMapRow, true, type);
+        cardLayout.show(mainPanel, "BATTLE");
+        startPlayerTurn();
+    }
+
+    /**
+     * resumeBattle — โหลดการต่อสู้ที่ค้างอยู่กลับมา
+     * ต่างจาก startBattle ตรงที่:
+     *  - ไม่เรียก nextLevelByType() (ไม่ level++ ไม่ spawn enemy ใหม่)
+     *  - ใช้ spawnEnemyByType() แทนเพื่อ spawn enemy ประเภทเดิม
+     *  - เรียก SaveManager.restoreEnemyState() เพื่อคืน HP/stats ที่ค้างไว้
+     */
+    private void resumeBattle(MapNode.NodeType type) {
+        inBattle      = true;
+        rewardShown   = false;
+        lastBattleType = type;
+        // spawn enemy ประเภทเดิมโดยไม่ level++
+        state.spawnEnemyByType(type);
+        // restore HP และ stats ที่บันทึกไว้
+        SaveManager.restoreEnemyState(state);
+        if (enemyPanel != null) enemyPanel.setEnemy(state.getEnemy());
+        state.getPlayer().resetBattleState();
+        state.getPlayer().applyBattleStartRelics();
+        state.getDeck().startNewBattle();
         if (type == MapNode.NodeType.BOSS || type == MapNode.NodeType.ELITE)
             AudioManager.playMusic(AudioManager.Track.BOSS);
         else
@@ -749,20 +787,59 @@ public class GameFrame extends JFrame {
         enemyTurn();
         if (!rewardShown && !state.getPlayer().isDead()) {
             state.getPlayer().reduceWeak();
+            state.getPlayer().reduceVulnerable();  // ← เพิ่ม: ลด player vulnerable
             state.getEnemy().reduceWeak();
+
+            // ImprovedEnemy: Reduce vulnerable and weak
+            if (state.getEnemy() instanceof entity.ImprovedEnemy) {
+                ((entity.ImprovedEnemy) state.getEnemy()).reduceStatusEffects();
+            }
+
             startPlayerTurn();
         } else if (!rewardShown) showGameOver();
     }
 
     private void enemyTurn() {
         Enemy e = state.getEnemy();
-        if (e.getPoison() > 0) { e.applyPoison(); log("Poison festers! Foe writhes in agony."); }
+
+        // Apply poison damage
+        if (e.getPoison() > 0) {
+            e.applyPoison();
+            log("Poison festers! Foe writhes in agony.");
+        }
         if (e.isDead()) { showRewardScreen(); return; }
+
+        // Execute attack
         int dmg = e.attack();
         if (dmg > 0 && enemyPanel != null) enemyPanel.playAttackAnim();
         if (dmg > 0 && playerModel != null) playerModel.playHurt();
         state.getPlayer().takeDamage(dmg);
-        log(e.getName() + " attacks for " + dmg + " damage.");
+
+// Log damage with vulnerable info
+        String damageLog = e.getName() + " attacks for " + dmg + " damage.";
+        if (state.getPlayer().getVulnerable() > 0) {
+            int reducedDmg = (int)(dmg / 1.5);  // แสดงดาเมจเดิม
+            damageLog += " (+" + (dmg - reducedDmg) + " from Vulnerable)";
+        }
+        log(damageLog);
+
+        // ImprovedEnemy: Apply special post-attack effects (Weak, Poison, Vulnerable)
+        if (e instanceof entity.ImprovedEnemy) {
+            entity.ImprovedEnemy improvedEnemy = (entity.ImprovedEnemy) e;
+            improvedEnemy.executePostAttackEffects(state.getPlayer());
+
+            // Log special effects
+            if (improvedEnemy.getIntent().contains("Weak")) {
+                log(improvedEnemy.getName() + " inflicts weakness!");
+            }
+            if (improvedEnemy.getIntent().contains("Poison") || improvedEnemy.getIntent().contains("Spore")) {
+                log(improvedEnemy.getName() + " spreads poison!");
+            }
+            if (improvedEnemy.getIntent().contains("Vulnerable")) {
+                log(improvedEnemy.getName() + " exploits your weakness!");
+            }
+        }
+
         updateLabels();
     }
 
@@ -1024,13 +1101,18 @@ public class GameFrame extends JFrame {
         Player p = state.getPlayer();
         playerLabel.setText("HP: " + p.getHp() + "/" + p.getMaxHp() + "  |  Gold: " + state.getGold() + "G  |  Lv." + state.getLevel());
         energyLabel.setText("⚡ " + p.getEnergy() + " Mana");
-        if (enemyPanel != null) { enemyPanel.setEnemy(state.getEnemy()); enemyPanel.refreshStatus(); }
+        if (enemyPanel != null) {
+            enemyPanel.setEnemy(state.getEnemy());
+            enemyPanel.refreshStatus();
+
+        }
         playerHB.updateHealth(p.getHp(), p.getMaxHp());
 
         playerStatusPanel.removeAll();
-        if (p.getBlock() > 0)    playerStatusPanel.add(statusBox("[DEF] "+p.getBlock(),    new Color(80,140,210)));
-        if (p.getStrength() > 0) playerStatusPanel.add(statusBox("[STR] "+p.getStrength(), new Color(200,120,30)));
-        if (p.getWeak() > 0)     playerStatusPanel.add(statusBox("[WEK] "+p.getWeak(),     new Color(160,60,200)));
+        if (p.getBlock() > 0)      playerStatusPanel.add(statusBox("[DEF] "+p.getBlock(),       new Color(80,140,210)));
+        if (p.getStrength() > 0)   playerStatusPanel.add(statusBox("[STR] "+p.getStrength(),    new Color(200,120,30)));
+        if (p.getWeak() > 0)       playerStatusPanel.add(statusBox("[WEK] "+p.getWeak(),        new Color(160,60,200)));
+        if (p.getVulnerable() > 0) playerStatusPanel.add(statusBox("[VUL] "+p.getVulnerable(), new Color(220,60,100))); // ← เพิ่ม Vulnerable
         for (Relic r : state.getPlayer().getRelics())
             playerStatusPanel.add(statusBox("✦ "+r.getName(), new Color(180,160,40)));
         playerStatusPanel.revalidate(); playerStatusPanel.repaint();

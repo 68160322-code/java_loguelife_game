@@ -164,21 +164,72 @@ public class Card {
         return Math.max(1, Math.round(base * pct * multiplier));
     }
 
+    /**
+     * ⭐ FIXED: Complete description with all possible effects
+     */
     public String getDescription() {
         StringBuilder sb = new StringBuilder();
-        if (damage > 0 && !multiHit && !energyBurst) sb.append("[ATK] Deal <b>").append(damage).append("</b> damage<br>");
-        if (block > 0)    sb.append("[DEF] Gain <b>").append(block).append("</b> block<br>");
-        if (poison > 0)   sb.append("[PSN] Apply <b>").append(poison).append("</b> poison<br>");
-        if (heal > 0)     sb.append("[HEL] Heal <b>").append(heal).append("</b> HP<br>");
-        if (strength > 0) sb.append("[STR] Gain <b>").append(strength).append("</b> strength<br>");
-        if (weak > 0)     sb.append("[WEK] Apply <b>").append(weak).append("</b> weak<br>");
-        if (vulnerable > 0) sb.append("[VUL] Apply <b>").append(vulnerable).append("</b> vulnerable<br>");
-        if (multiHit)    sb.append("[ATK] Hits <b>2x</b> " + damage + " each<br>");
-        if (energyBurst) {
-            int d = damage > 0 ? damage : 5;
-            sb.append("[ATK] ").append(d).append(" dmg x remaining Mana<br>");
+
+        // Check if card has any effects
+        boolean hasAnyEffect = damage > 0 || block > 0 || poison > 0 || heal > 0 ||
+                strength > 0 || weak > 0 || vulnerable > 0 ||
+                multiHit || energyBurst;
+
+        // ถ้าไม่มี effect เลย แสดง message
+        if (!hasAnyEffect) {
+            sb.append("<i>No effect</i>");
+            return sb.toString();
         }
-        if (exhaust)     sb.append("<i>(Exhaust)</i>");
+
+        // Multi-hit attack (แสดงก่อน damage ธรรมดา)
+        if (multiHit && damage > 0) {
+            sb.append("[ATK] Hits <b>2x</b> for <b>").append(damage).append("</b> damage each<br>");
+        }
+        // Energy burst attack
+        else if (energyBurst) {
+            int d = damage > 0 ? damage : 5;
+            sb.append("[ATK] Deal <b>").append(d).append("</b> damage per remaining Energy<br>");
+        }
+        // Normal damage
+        else if (damage > 0) {
+            sb.append("[ATK] Deal <b>").append(damage).append("</b> damage<br>");
+        }
+
+        // Block
+        if (block > 0) {
+            sb.append("[DEF] Gain <b>").append(block).append("</b> block<br>");
+        }
+
+        // Poison
+        if (poison > 0) {
+            sb.append("[PSN] Apply <b>").append(poison).append("</b> poison<br>");
+        }
+
+        // Heal
+        if (heal > 0) {
+            sb.append("[HEL] Heal <b>").append(heal).append("</b> HP<br>");
+        }
+
+        // Strength
+        if (strength > 0) {
+            sb.append("[STR] Gain <b>").append(strength).append("</b> strength<br>");
+        }
+
+        // Weak
+        if (weak > 0) {
+            sb.append("[WEK] Apply <b>").append(weak).append("</b> weak<br>");
+        }
+
+        // Vulnerable
+        if (vulnerable > 0) {
+            sb.append("[VUL] Apply <b>").append(vulnerable).append("</b> vulnerable<br>");
+        }
+
+        // Exhaust
+        if (exhaust) {
+            sb.append("<i>(Exhaust)</i>");
+        }
+
         return sb.toString();
     }
 
@@ -189,5 +240,13 @@ public class Card {
     public int getCost()       { return cost; }
     public int getHeal()       { return heal; }
     public int getBlock()      { return block; }
-    public boolean isExhaust() { return exhaust; }
+    public int getDamage()     { return damage; }
+    public int getPoison()     { return poison; }
+    public int getStrength()   { return strength; }
+    public int getWeak()       { return weak; }
+    public int getVulnerable() { return vulnerable; }
+    public boolean isExhaust()     { return exhaust; }
+    public boolean isMultiHit()    { return multiHit; }
+    public boolean isEnergyBurst() { return energyBurst; }
+    public boolean isUpgraded()    { return isUpgraded; }
 }

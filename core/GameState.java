@@ -42,18 +42,17 @@ public class GameState {
         spawnEnemy(); // spawn enemy placeholder ไว้ก่อน จะถูก override ตอนเข้าต่อสู้
     }
 
-    // ── Enemy Spawning (balance: ลด HP ศัตรูลง ~15%) ──────────────────────
     public void spawnEnemy() {
-        if (level % 7 == 0)      enemy = new RageBoss(level);  // BOSS ทุก 7 ด่าน (เดิม 5)
-        else if (level % 4 == 0) enemy = new BossEnemy(level); // Elite ทุก 4 ด่าน (เดิม 3)
-        else                     enemy = new Enemy(level);
+        if (level % 7 == 0)      enemy = new RageBoss(level);           // BOSS ทุก 7 ด่าน (เดิม 5)
+        else if (level % 4 == 0) enemy = new BossEnemy(level);          // Elite ทุก 4 ด่าน (เดิม 3)
+        else                     enemy = new entity.ImprovedEnemy(level); // ← เปลี่ยน: ใช้ ImprovedEnemy
     }
 
     public void spawnEnemyByType(MapNode.NodeType type) {
         switch (type) {
-            case ELITE: enemy = new BossEnemy(level);  break;
-            case BOSS:  enemy = new RageBoss(level);   break;
-            default:    enemy = new Enemy(level);      break;
+            case ELITE: enemy = new BossEnemy(level);           break;
+            case BOSS:  enemy = new RageBoss(level);            break;
+            default:    enemy = new entity.ImprovedEnemy(level); break; // ← เปลี่ยน: ใช้ ImprovedEnemy
         }
     }
 

@@ -250,14 +250,38 @@ public class CardLibrary {
 
     public static ArrayList<Card> getStarterDeck() { return getStarterDeck(null); }
 
-    /** สุ่มการ์ด 1 ใบตาม weight */
+    /** สุ่มการ์ด 1 ใบตาม weight + ExtendedCardLibrary */
     public static Card rollCard(int legendaryChance, int epicChance, int rareChance) {
         int roll = rand.nextInt(100);
+
+        // 35% โอกาสใช้ ExtendedCardLibrary, 65% ใช้ CardLibrary เดิม
+        boolean useExtended = rand.nextInt(100) < 35;
+
         ArrayList<Card> source;
-        if (roll < legendaryChance)                          source = getLegendaries();
-        else if (roll < legendaryChance + epicChance)        source = getEpics();
-        else if (roll < legendaryChance + epicChance + rareChance) source = getRares();
-        else                                                 source = getCommons();
+        Card.Rarity targetRarity;
+
+        // หาว่าควรเป็น Rarity ไหน
+        if (roll < legendaryChance) {
+            targetRarity = Card.Rarity.LEGENDARY;
+        } else if (roll < legendaryChance + epicChance) {
+            targetRarity = Card.Rarity.EPIC;
+        } else if (roll < legendaryChance + epicChance + rareChance) {
+            targetRarity = Card.Rarity.RARE;
+        } else {
+            targetRarity = Card.Rarity.COMMON;
+        }
+
+        // ใช้ ExtendedCardLibrary ถ้า random ออกมา true
+        if (useExtended) {
+            return card.ExtendedCardLibrary.getRandomRewardCard(targetRarity);
+        }
+
+        // ใช้ CardLibrary เดิม
+        if (targetRarity == Card.Rarity.LEGENDARY)  source = getLegendaries();
+        else if (targetRarity == Card.Rarity.EPIC)  source = getEpics();
+        else if (targetRarity == Card.Rarity.RARE)  source = getRares();
+        else                                        source = getCommons();
+
         return source.get(rand.nextInt(source.size()));
     }
 
@@ -276,4 +300,6 @@ public class CardLibrary {
         all.addAll(getEpics());   all.addAll(getLegendaries());
         return all;
     }
+
+
 }

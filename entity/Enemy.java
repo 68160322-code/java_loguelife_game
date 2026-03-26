@@ -115,4 +115,16 @@ public class Enemy {
     public int getVulnerable() { return vulnerable; }
     public int getMaxHp(){ return maxHp; }
     public int getLevel() { return level; }
+
+    // Setters สำหรับ SaveManager restore enemy state
+    public void setHp(int v)          { this.hp = Math.max(0, v); }
+    public void setMaxHp(int v)       { this.maxHp = v; }
+    public void setPoison(int v)      { this.poison = Math.max(0, v); }
+    public void setStrength(int v)    { this.strength = v; }
+    public void setWeak(int v)        { this.weak = Math.max(0, v); }
+    public void setVulnerable(int v)  { this.vulnerable = Math.max(0, v); }
+    public void setName(String n)     { this.name = n; }
+    public void setIntent(String s)   { this.intent = s; }
+    public void setIntentValue(int v) { this.intentValue = v; }
+    public int  getIntentValue()      { return intentValue; }
 }

@@ -114,24 +114,44 @@ public class Player {
     /** reset block เสมอ — เรียกตอนจบ battle (ทุก class) */
     public void forceResetBlock() { block = 0; }
 
-    /** takeDamage พร้อม Bone Charm, Phoenix Feather, Soul Anchor, และ Vulnerable */
     public void takeDamage(int dmg) {
-        // Apply vulnerable multiplier
+        int originalDmg = dmg;
+
+        // 1. Apply vulnerable multiplier (ดาเมจเพิ่มขึ้น 50%)
         if (vulnerable > 0) {
             dmg = (int)(dmg * 1.5);
         }
 
-        if (hasRelic(Relic.RelicType.BONE_CHARM)) dmg = Math.max(0, dmg - 1);
+        // 2. Apply BONE_CHARM relic (ลดดาเมจ 1)
+        if (hasRelic(Relic.RelicType.BONE_CHARM)) {
+            dmg = Math.max(0, dmg - 1);
+        }
+
+        // 3. Apply block (ป้องกัน)
         if (block > 0) {
-            if (block >= dmg) { block -= dmg; dmg = 0; }
-            else { dmg -= block; block = 0; }
+            if (block >= dmg) {
+                block -= dmg;
+                dmg = 0;
+            } else {
+                dmg -= block;
+                block = 0;
+            }
         }
+
+        // 4. Apply SOUL_ANCHOR relic (ช่วยชีวิตครั้งเดียว)
         if (!soulAnchorUsed && hasRelic(Relic.RelicType.SOUL_ANCHOR) && hp - dmg <= 0) {
-            hp = 1; soulAnchorUsed = true; return;
+            hp = 1;
+            soulAnchorUsed = true;
+            return;
         }
+
+        // 5. Take actual damage
         hp = Math.max(0, hp - dmg);
+
+        // 6. Apply PHOENIX_FEATHER relic (ฟื้นตัว)
         if (hp <= 0 && !phoenixUsed && hasRelic(Relic.RelicType.PHOENIX_FEATHER)) {
-            hp = 20; phoenixUsed = true;
+            hp = 20;
+            phoenixUsed = true;
         }
     }
 

@@ -317,4 +317,46 @@ public class ExtendedCardLibrary {
 
         return pool.get(new java.util.Random().nextInt(pool.size()));
     }
+
+    /**
+     * คืนการ์ดทุกใบใน ExtendedCardLibrary — ใช้โดย SaveManager ตอนโหลด save
+     * เพื่อ restore การ์ดที่ได้มาจาก shop/reward กลับมาพร้อม stats ครบถ้วน
+     */
+    public static java.util.ArrayList<Card> getAllExtendedCards() {
+        java.util.ArrayList<Card> all = new java.util.ArrayList<>();
+        // Common
+        all.add(exposeWeakness());
+        all.add(poisonedBlade());
+        all.add(serpentStrike());
+        all.add(protectiveStance());
+        all.add(uppercut());
+        all.add(strike());
+        all.add(defend());
+        all.add(bash());
+        all.add(healingPotion());
+        // Rare
+        all.add(crushingBlow());
+        all.add(toxicCloud());
+        all.add(fortify());
+        all.add(poisonousDefense());
+        all.add(hemorrhage());
+        all.add(bloodPact());
+        all.add(flurry());
+        all.add(whirlwind());
+        all.add(meditation());
+        all.add(battleRage());
+        all.add(weakenFoe());
+        all.add(twinStrike());
+        all.add(vampiricStrike());
+        // Epic
+        all.add(venomStrike());
+        all.add(ironWall());
+        all.add(devastate());
+        // Legendary
+        all.add(apocalypse());
+        all.add(plaguebringer());
+        all.add(divineShield());
+        all.add(executioner());
+        return all;
+    }
 }

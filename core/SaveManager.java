@@ -29,11 +29,23 @@ public class SaveManager {
     private static final String KEY_GOLD      = "gold";
     private static final String KEY_LEVEL     = "level";
     private static final String KEY_MAX_ENERGY= "max_energy";
-    private static final String KEY_MAP_COL   = "map_col";
-    private static final String KEY_MAP_ROW   = "map_row";
-    private static final String KEY_DECK      = "deck";
-    private static final String KEY_RELICS    = "relics";
-    private static final String SEPARATOR     = "|||";
+    private static final String KEY_MAP_COL    = "map_col";
+    private static final String KEY_MAP_ROW    = "map_row";
+    private static final String KEY_DECK       = "deck";
+    private static final String KEY_RELICS     = "relics";
+    private static final String KEY_IN_BATTLE   = "in_battle";
+    private static final String KEY_BATTLE_TYPE = "battle_type";
+    private static final String KEY_ENEMY_HP    = "enemy_hp";
+    private static final String KEY_ENEMY_MAX_HP= "enemy_max_hp";
+    private static final String KEY_ENEMY_NAME  = "enemy_name";
+    private static final String KEY_ENEMY_CLASS = "enemy_class";   // "Enemy","BossEnemy","RageBoss","ImprovedEnemy"
+    private static final String KEY_ENEMY_STR   = "enemy_str";
+    private static final String KEY_ENEMY_PSN   = "enemy_psn";
+    private static final String KEY_ENEMY_WEAK  = "enemy_weak";
+    private static final String KEY_ENEMY_VUL   = "enemy_vul";
+    private static final String KEY_ENEMY_INTENT= "enemy_intent";
+    private static final String KEY_ENEMY_INTV  = "enemy_intv";
+    private static final String SEPARATOR       = "|||";
 
     // ── Check ─────────────────────────────────────────────────────────────────
     public static boolean hasSave() {
@@ -46,6 +58,11 @@ public class SaveManager {
     }
 
     public static void save(core.GameState state, map.MapScreen mapScreen, int mapCol, int mapRow) {
+        save(state, mapScreen, mapCol, mapRow, false, null);
+    }
+
+    public static void save(core.GameState state, map.MapScreen mapScreen, int mapCol, int mapRow,
+                            boolean inBattle, map.MapNode.NodeType battleType) {
         try {
             entity.Player p = state.getPlayer();
 
@@ -57,16 +74,49 @@ public class SaveManager {
             PREFS.putInt(KEY_MAX_ENERGY,     p.getMaxEnergy());
             PREFS.putInt(KEY_MAP_COL,        mapCol);
             PREFS.putInt(KEY_MAP_ROW,        mapRow);
+            PREFS.putBoolean(KEY_IN_BATTLE,  inBattle);
+            PREFS.put(KEY_BATTLE_TYPE,       battleType != null ? battleType.name() : "BATTLE");
 
-            // Deck
+            // บันทึก enemy state (ถ้ากำลังสู้อยู่)
+            if (inBattle && state.getEnemy() != null) {
+                entity.Enemy e = state.getEnemy();
+                PREFS.putInt(KEY_ENEMY_HP,      e.getHp());
+                PREFS.putInt(KEY_ENEMY_MAX_HP,  e.getMaxHp());
+                PREFS.putInt(KEY_ENEMY_STR,     e.getStrength());
+                PREFS.putInt(KEY_ENEMY_PSN,     e.getPoison());
+                PREFS.putInt(KEY_ENEMY_WEAK,    e.getWeak());
+                PREFS.putInt(KEY_ENEMY_VUL,     e.getVulnerable());
+                PREFS.put(KEY_ENEMY_NAME,       e.getName());
+                PREFS.put(KEY_ENEMY_INTENT,     e.getIntent());
+                PREFS.putInt(KEY_ENEMY_INTV,    e.getIntentValue());
+                // บันทึก class ของ enemy เพื่อ restore ถูกประเภท
+                String eClass = "ImprovedEnemy";
+                if (e instanceof entity.RageBoss)      eClass = "RageBoss";
+                else if (e instanceof entity.BossEnemy) eClass = "BossEnemy";
+                PREFS.put(KEY_ENEMY_CLASS, eClass);
+            }
+
+            // Deck — บันทึก stats ครบทุก field แทนการเก็บแค่ชื่อ
             ArrayList<Card> deck = state.getDeck().getMasterDeck();
             StringBuilder deckSB = new StringBuilder();
             for (Card c : deck) {
                 if (deckSB.length() > 0) deckSB.append(SEPARATOR);
+                // format: name|type|rarity|cost|dmg|heal|blk|psn|str|weak|vul|exhaust|multiHit|energyBurst|upgraded
                 deckSB.append(c.getName())
-                        .append(",").append(c.getType().name())
-                        .append(",").append(c.getRarity().name())
-                        .append(",").append(c.getCost());
+                        .append("|").append(c.getType().name())
+                        .append("|").append(c.getRarity().name())
+                        .append("|").append(c.getCost())
+                        .append("|").append(c.getDamage())
+                        .append("|").append(c.getHeal())
+                        .append("|").append(c.getBlock())
+                        .append("|").append(c.getPoison())
+                        .append("|").append(c.getStrength())
+                        .append("|").append(c.getWeak())
+                        .append("|").append(c.getVulnerable())
+                        .append("|").append(c.isExhaust()     ? 1 : 0)
+                        .append("|").append(c.isMultiHit()    ? 1 : 0)
+                        .append("|").append(c.isEnergyBurst() ? 1 : 0)
+                        .append("|").append(c.isUpgraded()    ? 1 : 0);
             }
             PREFS.put(KEY_DECK, deckSB.toString());
 
@@ -123,19 +173,64 @@ public class SaveManager {
             entity.Player p = state.getPlayer();
             p.setStats(hp, maxHp, maxEnergy);
 
-            // โหลด Deck
+            // โหลด Deck — อ่านจาก stats โดยตรง ไม่ต้องค้น library
             String deckStr = PREFS.get(KEY_DECK, "");
             if (!deckStr.isEmpty()) {
                 for (String entry : deckStr.split("\\|\\|\\|")) {
-                    String[] parts = entry.split(",", 4);
-                    if (parts.length < 3) continue;
-                    String cardName = parts[0];
-                    CardType type   = CardType.valueOf(parts[1]);
-                    Card.Rarity rar = Card.Rarity.valueOf(parts[2]);
-                    int cost        = parts.length >= 4 ? Integer.parseInt(parts[3]) : 1;
-                    Card found = findCardByName(cardName, type, rar);
-                    if (found == null) found = new Card(cardName, type, rar).cost(cost);
-                    state.getDeck().addToMasterDeck(found);
+                    if (entry.isEmpty()) continue;
+                    String[] p2 = entry.split("\\|", -1);
+
+                    if (p2.length >= 15) {
+                        // รูปแบบใหม่ — มี stats ครบ
+                        try {
+                            String   cName    = p2[0];
+                            CardType cType    = CardType.valueOf(p2[1]);
+                            Card.Rarity cRar  = Card.Rarity.valueOf(p2[2]);
+                            int cost          = Integer.parseInt(p2[3]);
+                            int dmg           = Integer.parseInt(p2[4]);
+                            int heal          = Integer.parseInt(p2[5]);
+                            int blk           = Integer.parseInt(p2[6]);
+                            int psn           = Integer.parseInt(p2[7]);
+                            int str           = Integer.parseInt(p2[8]);
+                            int weak          = Integer.parseInt(p2[9]);
+                            int vul           = Integer.parseInt(p2[10]);
+                            boolean exhaust   = p2[11].equals("1");
+                            boolean multiHit  = p2[12].equals("1");
+                            boolean energyBst = p2[13].equals("1");
+                            boolean upgraded  = p2[14].equals("1");
+
+                            Card c = new Card(cName, cType, cRar)
+                                    .cost(cost);
+                            if (dmg  > 0) c.damage(dmg);
+                            if (heal > 0) c.heal(heal);
+                            if (blk  > 0) c.block(blk);
+                            if (psn  > 0) c.poison(psn);
+                            if (str  > 0) c.strength(str);
+                            if (weak > 0) c.weak(weak);
+                            if (vul  > 0) c.vulnerable(vul);
+                            if (exhaust)   c.exhaust();
+                            if (multiHit)  c.multiHit();
+                            if (energyBst) c.energyBurst();
+                            // การ์ดที่ upgraded แล้ว — ชื่อมี + อยู่แล้ว ไม่ต้อง upgrade ซ้ำ
+                            state.getDeck().addToMasterDeck(c);
+                        } catch (Exception ex) {
+                            System.err.println("[Load] Card parse error: " + ex.getMessage() + " entry=" + entry);
+                        }
+                    } else {
+                        // รูปแบบเก่า (compat) — ค้น library ตามชื่อ
+                        String[] parts = entry.split(",", 4);
+                        if (parts.length < 3) continue;
+                        String cardName = parts[0];
+                        CardType type   = CardType.valueOf(parts[1]);
+                        Card.Rarity rar = Card.Rarity.valueOf(parts[2]);
+                        int cost        = parts.length >= 4 ? Integer.parseInt(parts[3]) : 1;
+                        Card found = findCardByName(cardName, type, rar);
+                        if (found == null) {
+                            found = new Card(cardName, type, rar).cost(cost);
+                            System.err.println("[Load] Fallback card (no stats): " + cardName);
+                        }
+                        state.getDeck().addToMasterDeck(found);
+                    }
                 }
             }
 
@@ -165,6 +260,54 @@ public class SaveManager {
     /** โหลดตำแหน่งบน map ที่บันทึกไว้ */
     public static int loadMapCol() { return PREFS.getInt(KEY_MAP_COL, -1); }
     public static int loadMapRow() { return PREFS.getInt(KEY_MAP_ROW, -1); }
+    /** โหลดสถานะว่ากำลังสู้อยู่ไหมตอน save */
+    public static boolean loadInBattle() { return PREFS.getBoolean(KEY_IN_BATTLE, false); }
+    /** โหลดประเภทการต่อสู้ที่ค้างอยู่ */
+    public static map.MapNode.NodeType loadBattleType() {
+        try {
+            return map.MapNode.NodeType.valueOf(PREFS.get(KEY_BATTLE_TYPE, "BATTLE"));
+        } catch (Exception e) {
+            return map.MapNode.NodeType.BATTLE;
+        }
+    }
+
+    /**
+     * Restore enemy state ที่บันทึกไว้เข้า GameState โดยตรง
+     * เรียกหลัง startBattle() เพื่อ overwrite enemy ที่ spawn ใหม่
+     */
+    public static void restoreEnemyState(core.GameState state) {
+        try {
+            String eClass  = PREFS.get(KEY_ENEMY_CLASS, "");
+            if (eClass.isEmpty()) return;
+
+            int eHp    = PREFS.getInt(KEY_ENEMY_HP,     1);
+            int eMaxHp = PREFS.getInt(KEY_ENEMY_MAX_HP, 1);
+            int eStr   = PREFS.getInt(KEY_ENEMY_STR,    0);
+            int ePsn   = PREFS.getInt(KEY_ENEMY_PSN,    0);
+            int eWeak  = PREFS.getInt(KEY_ENEMY_WEAK,   0);
+            int eVul   = PREFS.getInt(KEY_ENEMY_VUL,    0);
+            int eIntV  = PREFS.getInt(KEY_ENEMY_INTV,   0);
+            String eName   = PREFS.get(KEY_ENEMY_NAME,   "Enemy");
+            String eIntent = PREFS.get(KEY_ENEMY_INTENT, "");
+
+            entity.Enemy e = state.getEnemy();
+            if (e == null) return;
+
+            e.setHp(eHp);
+            e.setMaxHp(eMaxHp);
+            e.setStrength(eStr);
+            e.setPoison(ePsn);
+            e.setWeak(eWeak);
+            e.setVulnerable(eVul);
+            e.setName(eName);
+            e.setIntentValue(eIntV);
+            if (!eIntent.isEmpty()) e.setIntent(eIntent);
+
+            System.out.println("[Load] Enemy restored: " + eName + " HP=" + eHp + "/" + eMaxHp);
+        } catch (Exception ex) {
+            System.err.println("[Load] Enemy restore failed: " + ex.getMessage());
+        }
+    }
 
     /** โหลด map state แล้ว apply ให้ MapScreen — restore ทั้ง type และ state */
     public static void restoreMapState(map.MapScreen mapScreen) {
@@ -215,15 +358,27 @@ public class SaveManager {
 
     // ── Helper ────────────────────────────────────────────────────────────────
     private static Card findCardByName(String name, CardType type, Card.Rarity rarity) {
-        // ค้นหาจาก CardLibrary ก่อน
-        ArrayList<Card> all = CardLibrary.getAllCards();
-        for (Card c : all) {
-            if (c.getName().equals(name) || c.getName().equals(name.replace("+", ""))) {
-                // ถ้าชื่อมี + แสดงว่า upgraded
-                if (name.endsWith("+")) c.upgrade();
+        boolean upgraded = name.endsWith("+");
+        String baseName  = upgraded ? name.substring(0, name.length() - 1) : name;
+
+        // 1. ค้นหาจาก CardLibrary หลัก
+        for (Card c : CardLibrary.getAllCards()) {
+            if (c.getName().equals(name) || c.getName().equals(baseName)) {
+                if (upgraded) c.upgrade();
                 return c;
             }
         }
-        return null; // ไม่เจอ
+
+        // 2. ค้นหาจาก ExtendedCardLibrary (การ์ดจาก shop/reward)
+        for (Card c : card.ExtendedCardLibrary.getAllExtendedCards()) {
+            if (c.getName().equals(name) || c.getName().equals(baseName)) {
+                if (upgraded) c.upgrade();
+                return c;
+            }
+        }
+
+        // 3. ไม่เจอเลย — log warning แล้วคืน null
+        System.err.println("[Load] Warning: card not found in any library: \"" + name + "\"");
+        return null;
     }
 }
